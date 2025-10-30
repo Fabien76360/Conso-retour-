@@ -299,10 +299,21 @@
 
                 resolveHeaderMapping(headers) {
                     const reference = {
-                        component: ['component', 'component id', 'component_id', 'material', 'material number', 'componentid'],
-                        description: ['description', 'material description', 'component description'],
-                        qtyAssigned: ['qty assigned', 'qty_assigned', 'requirement qty', 'reqmnt qty', 'qty requirement', 'qty required', 'quantité attribuée'],
-                        uom: ['uom', 'base unit of measure', 'unit', 'unité']
+                        component: [
+                            'component', 'component id', 'component_id', 'material', 'material number',
+                            'composant', 'numéro de composant', 'article', 'code article'
+                        ],
+                        description: [
+                            'description', 'material description', 'component description',
+                            'désignation', 'description article'
+                        ],
+                        qtyAssigned: [
+                            'qty assigned', 'qty_assigned', 'requirement qty', 'reqmnt qty',
+                            'qty requirement', 'qty required', 'quantité attribuée', 'quantité affectée'
+                        ],
+                        uom: [
+                            'uom', 'base unit of measure', 'unit', 'unité', 'unité de base', 'uom base'
+                        ]
                     };
                     const mapping = {};
                     headers.forEach((header, index) => {
