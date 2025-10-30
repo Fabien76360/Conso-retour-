@@ -149,6 +149,70 @@
 
     <!-- CORE LOGIC -->
     <script>
+        const readFileSmart = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const buf = reader.result;
+                const u8 = new Uint8Array(buf);
+                const hasUtf8Bom = u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF;
+                const hasUtf16leBom = u8[0] === 0xFF && u8[1] === 0xFE;
+                try {
+                    let dec = 'utf-8';
+                    if (hasUtf16leBom) {
+                        dec = 'utf-16le';
+                    } else if (!hasUtf8Bom) {
+                        const zeroRatio = u8.slice(0, 512).filter(b => b === 0).length / Math.min(512, u8.length);
+                        if (zeroRatio > 0.1) {
+                            dec = 'utf-16le';
+                        }
+                    }
+                    resolve(new TextDecoder(dec).decode(buf));
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsArrayBuffer(file);
+        });
+
+        const normalize = (s) => String(s || '')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const headerKeywords = {
+            component: [
+                ['component'], ['material'], ['material', 'number'], ['component', 'id'],
+                ['composant'], ['numero', 'materiel'], ['code', 'article'], ['article']
+            ],
+            description: [
+                ['description'], ['material', 'description'], ['component', 'description'],
+                ['designation'], ['designation', 'materiau'], ['description', 'article']
+            ],
+            qtyAssigned: [
+                ['qty', 'assigned'], ['requirement', 'qty'], ['qty', 'required'],
+                ['quantite', 'attribuee'], ['quantite', 'affectee'], ['qte', 'affectee'],
+                ['besoin'], ['quantite', 'besoin']
+            ],
+            uom: [
+                ['uom'], ['base', 'unit', 'measure'], ['unit'],
+                ['unite'], ['unite', 'base'], ['unite', 'base', 'mesure']
+            ]
+        };
+
+        const splitMonospaceLineToCells = (raw) => {
+            if (!raw) return [];
+            return String(raw)
+                .replace(/&nbsp;/gi, ' ')
+                .replace(/\u00A0|\u202F/g, ' ')
+                .replace(/\t/g, ' ')
+                .split(/\s{2,}/)
+                .map(s => s.trim())
+                .filter(Boolean);
+        };
+
         document.addEventListener('alpine:init', () => {
             Alpine.data('app', () => ({
                 entries: [],
@@ -158,47 +222,6 @@
                 errors: [],
                 totalConsumption: 0,
                 totalReturn: 0,
-
-                readFileSmart(file) {
-                    return new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                            const buf = reader.result;
-                            const u8 = new Uint8Array(buf);
-                            const hasUtf8Bom = u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF;
-                            const hasUtf16leBom = u8[0] === 0xFF && u8[1] === 0xFE;
-                            try {
-                                let text;
-                                if (hasUtf8Bom) {
-                                    text = new TextDecoder('utf-8').decode(buf);
-                                } else if (hasUtf16leBom) {
-                                    text = new TextDecoder('utf-16le').decode(buf);
-                                } else {
-                                    const zeroRatio = u8.slice(0, 512).filter(b => b === 0).length / Math.min(512, u8.length);
-                                    const enc = zeroRatio > 0.1 ? 'utf-16le' : 'utf-8';
-                                    text = new TextDecoder(enc).decode(buf);
-                                }
-                                resolve(text);
-                            } catch (e) {
-                                reject(e);
-                            }
-                        };
-                        reader.onerror = () => reject(reader.error);
-                        reader.readAsArrayBuffer(file);
-                    });
-                },
-
-                splitMonospaceLineToCells(raw) {
-                    if (!raw) return [];
-                    return raw
-                        .replace(/&nbsp;/gi, ' ')
-                        .replace(/\u00A0/g, ' ')
-                        .replace(/\u202F/g, ' ')
-                        .replace(/\t/g, ' ')
-                        .split(/\s{2,}/)
-                        .map(s => s.trim())
-                        .filter(Boolean);
-                },
 
                 parseYmlrMonospaceHtml(text) {
                     const parser = new DOMParser();
@@ -227,7 +250,7 @@
                     let headerCells = null;
                     let headerIdx = -1;
                     for (let i = 0; i < lines.length; i++) {
-                        const split = this.splitMonospaceLineToCells(lines[i]);
+                        const split = splitMonospaceLineToCells(lines[i]);
                         if (split.length >= 4) {
                             headerCells = split;
                             headerIdx = i;
@@ -247,7 +270,7 @@
 
                     const data = [];
                     for (let i = headerIdx + 1; i < lines.length; i++) {
-                        const split = this.splitMonospaceLineToCells(lines[i]);
+                        const split = splitMonospaceLineToCells(lines[i]);
                         if (!split.length) continue;
                         const mapped = this.mapRow(split, mapping);
                         if (mapped) {
@@ -267,7 +290,7 @@
                         return;
                     }
 
-                    this.readFileSmart(file)
+                    readFileSmart(file)
                         .then(content => {
                             try {
                                 const parsed = this.parseImport(content, file.name);
@@ -289,11 +312,11 @@
                                 this.recalculateAll();
                             } catch (error) {
                                 console.error(error);
-                                this.errors.push('Impossible de lire le fichier : ' + (error.message || error));
+                                this.errors.push('Lecture fichier impossible: ' + (error.message || error));
                             }
                         })
                         .catch(error => {
-                            this.errors.push('Impossible de lire le fichier : ' + (error.message || error));
+                            this.errors.push('Lecture fichier impossible: ' + (error.message || error));
                         });
                 },
 
@@ -338,15 +361,18 @@
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(text, 'text/html');
                     const tables = Array.from(doc.querySelectorAll('table'));
-                    if (!tables.length) throw new Error('Aucun tableau détecté dans le fichier HTML.');
+                    if (!tables.length) {
+                        throw new Error('Aucun tableau détecté dans le fichier HTML.');
+                    }
 
-                    const pickTable = (tbl) => {
+                    const scoreTable = (tbl) => {
                         const rows = tbl.tBodies.length
                             ? Array.from(tbl.tBodies).reduce((acc, tb) => acc + tb.rows.length, 0)
                             : tbl.rows.length;
-                        return rows;
+                        const cols = Math.max(0, ...Array.from(tbl.rows).map(r => r.cells.length));
+                        return rows * 10 + cols;
                     };
-                    const table = tables.sort((a, b) => pickTable(b) - pickTable(a))[0];
+                    const table = tables.sort((a, b) => scoreTable(b) - scoreTable(a))[0];
 
                     let headerCells = Array.from(table.querySelectorAll('thead tr th'));
                     if (!headerCells.length) {
@@ -354,7 +380,9 @@
                         headerCells = firstRow ? Array.from(firstRow.cells) : [];
                     }
                     const headers = headerCells.map(c => c.textContent.trim());
-                    this.messages.push('En-têtes détectés : ' + headers.join(' | '));
+                    if (headers.length) {
+                        this.messages.push('En-têtes détectés : ' + headers.join(' | '));
+                    }
                     const mapping = this.resolveHeaderMapping(headers);
 
                     let bodyRows = [];
@@ -370,18 +398,24 @@
                     const dataRows = [];
                     let oneCellRowCount = 0;
                     for (const tr of bodyRows) {
-                        const cells = Array.from(tr.cells).map(cell => cell.textContent.trim());
-                        if (cells.length <= 1) {
-                            oneCellRowCount++;
+                        let cells = Array.from(tr.cells).map(cell => cell.textContent.trim());
+                        if (!cells.length || cells.every(value => value === '')) {
+                            continue;
                         }
-                        if (!cells.length || cells.every(value => value === '')) continue;
+                        if (cells.length === 1) {
+                            oneCellRowCount++;
+                            cells = splitMonospaceLineToCells(cells[0]);
+                        }
                         const mapped = this.mapRow(cells, mapping);
-                        if (mapped) dataRows.push(mapped);
+                        if (mapped) {
+                            dataRows.push(mapped);
+                        }
                     }
 
                     const majoritySingleCell = bodyRows.length > 0 && (oneCellRowCount / bodyRows.length) > 0.5;
                     if (!dataRows.length || majoritySingleCell) {
-                        this.messages.push('Format YMLR « monospace » détecté – parseur dédié activé.');
+                        this.messages.push('Format YMLR « monospace » détecté.');
+                        this.messages.push('Parseur dédié activé pour le format YMLR « monospace ».');
                         const alt = this.parseYmlrMonospaceHtml(text);
                         if (alt.length) {
                             return alt;
@@ -428,39 +462,12 @@
                 },
 
                 resolveHeaderMapping(headers) {
-                    const normalize = (s) => s
-                        .toLowerCase()
-                        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                        .replace(/[^a-z0-9]+/g, ' ')
-                        .replace(/\s+/g, ' ')
-                        .trim();
-
-                    const keywords = {
-                        component: [
-                            ['component'], ['material'], ['material', 'number'], ['component', 'id'],
-                            ['composant'], ['numero', 'materiel'], ['code', 'article'], ['article']
-                        ],
-                        description: [
-                            ['description'], ['material', 'description'], ['component', 'description'],
-                            ['designation'], ['designation', 'materiau'], ['description', 'article']
-                        ],
-                        qtyAssigned: [
-                            ['qty', 'assigned'], ['requirement', 'qty'], ['qty', 'required'],
-                            ['quantite', 'attribuee'], ['quantite', 'affectee'], ['qte', 'affectee'],
-                            ['besoin'], ['quantite', 'besoin']
-                        ],
-                        uom: [
-                            ['uom'], ['base', 'unit', 'measure'], ['unit'],
-                            ['unite'], ['unite', 'base'], ['unite', 'base', 'mesure']
-                        ]
-                    };
-
                     const mapping = {};
                     const norm = headers.map(h => normalize(h));
                     const tryMatch = (h, groups) => groups.find(tokens => tokens.every(t => h.includes(t)));
 
                     norm.forEach((h, idx) => {
-                        for (const [key, groups] of Object.entries(keywords)) {
+                        for (const [key, groups] of Object.entries(headerKeywords)) {
                             if (mapping[key] != null) continue;
                             if (tryMatch(h, groups)) {
                                 mapping[key] = idx;
@@ -470,23 +477,32 @@
                     return mapping;
                 },
 
-                mapRow(row, mapping) {
+                mapRow(cells, mapping) {
                     const componentIdx = mapping.component;
                     const descriptionIdx = mapping.description;
                     const qtyIdx = mapping.qtyAssigned;
                     const uomIdx = mapping.uom;
-                    if ([componentIdx, descriptionIdx, qtyIdx, uomIdx].some(index => typeof index === 'undefined')) {
+                    if ([componentIdx, descriptionIdx, qtyIdx, uomIdx].some(index => index == null)) {
                         return null;
                     }
-                    const qtyAssigned = this.toNumber(row[qtyIdx]);
-                    if (isNaN(qtyAssigned)) {
+                    if ([componentIdx, descriptionIdx, qtyIdx, uomIdx].some(index => index >= cells.length)) {
                         return null;
                     }
+
+                    const component = (cells[componentIdx] ?? '').trim();
+                    const description = (cells[descriptionIdx] ?? '').trim();
+                    const uom = (cells[uomIdx] ?? '').trim();
+                    const qtyAssigned = this.parseNumberLike(cells[qtyIdx]);
+
+                    if (!component || !description || !uom || !Number.isFinite(qtyAssigned)) {
+                        return null;
+                    }
+
                     return {
-                        component_id: row[componentIdx]?.trim() || '',
-                        desc: row[descriptionIdx]?.trim() || '',
+                        component_id: component,
+                        desc: description,
                         qty_assigned: qtyAssigned,
-                        uom: row[uomIdx]?.trim() || ''
+                        uom
                     };
                 },
 
@@ -548,12 +564,11 @@
 
                 parseNumberLike(value) {
                     if (value == null) {
-                        return Number.NaN;
+                        return NaN;
                     }
                     let v = String(value)
                         .replace(/[%]/g, '')
-                        .replace(/\u00A0/g, '')
-                        .replace(/\u202F/g, '')
+                        .replace(/\u00A0|\u202F/g, '')
                         .replace(/\s+/g, '');
 
                     const lastComma = v.lastIndexOf(',');
@@ -568,8 +583,8 @@
                     } else if (lastComma !== -1) {
                         v = v.replace(',', '.');
                     }
-                    const parsed = parseFloat(v);
-                    return Number.isNaN(parsed) ? Number.NaN : parsed;
+                    const n = parseFloat(v);
+                    return Number.isFinite(n) ? n : NaN;
                 },
 
                 toNumber(value) {
