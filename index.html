@@ -159,6 +159,35 @@
                 totalConsumption: 0,
                 totalReturn: 0,
 
+                readFileSmart(file) {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            const buf = reader.result;
+                            const u8 = new Uint8Array(buf);
+                            const hasUtf8Bom = u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF;
+                            const hasUtf16leBom = u8[0] === 0xFF && u8[1] === 0xFE;
+                            try {
+                                let text;
+                                if (hasUtf8Bom) {
+                                    text = new TextDecoder('utf-8').decode(buf);
+                                } else if (hasUtf16leBom) {
+                                    text = new TextDecoder('utf-16le').decode(buf);
+                                } else {
+                                    const zeroRatio = u8.slice(0, 512).filter(b => b === 0).length / Math.min(512, u8.length);
+                                    const enc = zeroRatio > 0.1 ? 'utf-16le' : 'utf-8';
+                                    text = new TextDecoder(enc).decode(buf);
+                                }
+                                resolve(text);
+                            } catch (e) {
+                                reject(e);
+                            }
+                        };
+                        reader.onerror = () => reject(reader.error);
+                        reader.readAsArrayBuffer(file);
+                    });
+                },
+
                 handleFile(event) {
                     const file = event.target.files?.[0];
                     this.entries = [];
@@ -169,33 +198,34 @@
                         return;
                     }
 
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        const content = reader.result;
-                        try {
-                            const parsed = this.parseImport(content, file.name);
-                            if (parsed.length === 0) {
-                                this.errors.push('Aucune ligne exploitable trouvée dans le fichier importé.');
-                                return;
+                    this.readFileSmart(file)
+                        .then(content => {
+                            try {
+                                const parsed = this.parseImport(content, file.name);
+                                if (parsed.length === 0) {
+                                    this.errors.push('Aucune ligne exploitable trouvée dans le fichier importé.');
+                                    return;
+                                }
+                                this.entries = parsed.map((row, index) => ({
+                                    ...row,
+                                    rowId: `${row.component_id}-${index}`,
+                                    qty_left: 0,
+                                    qty_consumed: row.qty_assigned,
+                                    qty_return: 0,
+                                    variance_pct: 0,
+                                    flag: false,
+                                    error: ''
+                                }));
+                                this.messages.push(`${this.entries.length} composant(s) chargé(s) avec succès.`);
+                                this.recalculateAll();
+                            } catch (error) {
+                                console.error(error);
+                                this.errors.push('Impossible de lire le fichier : ' + (error.message || error));
                             }
-                            this.entries = parsed.map((row, index) => ({
-                                ...row,
-                                rowId: `${row.component_id}-${index}`,
-                                qty_left: 0,
-                                qty_consumed: row.qty_assigned,
-                                qty_return: 0,
-                                variance_pct: 0,
-                                flag: false,
-                                error: ''
-                            }));
-                            this.messages.push(`${this.entries.length} composant(s) chargé(s) avec succès.`);
-                            this.recalculateAll();
-                        } catch (error) {
-                            console.error(error);
+                        })
+                        .catch(error => {
                             this.errors.push('Impossible de lire le fichier : ' + (error.message || error));
-                        }
-                    };
-                    reader.readAsText(file, 'utf-8');
+                        });
                 },
 
                 parseImport(content, filename) {
@@ -238,25 +268,42 @@
                 parseHtmlTable(text) {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(text, 'text/html');
-                    const table = doc.querySelector('table');
-                    if (!table) {
-                        throw new Error('Aucun tableau détecté dans le fichier HTML.');
+                    const tables = Array.from(doc.querySelectorAll('table'));
+                    if (!tables.length) throw new Error('Aucun tableau détecté dans le fichier HTML.');
+
+                    const pickTable = (tbl) => {
+                        const rows = tbl.tBodies.length
+                            ? Array.from(tbl.tBodies).reduce((acc, tb) => acc + tb.rows.length, 0)
+                            : tbl.rows.length;
+                        return rows;
+                    };
+                    const table = tables.sort((a, b) => pickTable(b) - pickTable(a))[0];
+
+                    let headerCells = Array.from(table.querySelectorAll('thead tr th'));
+                    if (!headerCells.length) {
+                        const firstRow = Array.from(table.rows).find(r => Array.from(r.cells).some(c => c.textContent.trim() !== ''));
+                        headerCells = firstRow ? Array.from(firstRow.cells) : [];
                     }
-                    const headerCells = Array.from(table.querySelectorAll('thead tr th'));
-                    const headers = headerCells.length ? headerCells : Array.from(table.querySelectorAll('tr:first-child td'));
-                    const headerLabels = headers.map(cell => cell.textContent.trim().toLowerCase());
-                    const mapping = this.resolveHeaderMapping(headerLabels);
-                    const bodyRows = table.tBodies.length ? Array.from(table.tBodies[0].rows) : Array.from(table.querySelectorAll('tr')).slice(1);
+                    const headers = headerCells.map(c => c.textContent.trim());
+                    this.messages.push('En-têtes détectés : ' + headers.join(' | '));
+                    const mapping = this.resolveHeaderMapping(headers);
+
+                    let bodyRows = [];
+                    if (table.tBodies.length) {
+                        bodyRows = Array.from(table.tBodies).flatMap(tb => Array.from(tb.rows));
+                    } else {
+                        bodyRows = Array.from(table.rows);
+                    }
+                    if (bodyRows.length && headerCells.length && bodyRows[0] === headerCells[0]?.parentElement) {
+                        bodyRows = bodyRows.slice(1);
+                    }
+
                     const dataRows = [];
                     for (const tr of bodyRows) {
                         const cells = Array.from(tr.cells).map(cell => cell.textContent.trim());
-                        if (!cells.length || cells.every(value => value === '')) {
-                            continue;
-                        }
+                        if (!cells.length || cells.every(value => value === '')) continue;
                         const mapped = this.mapRow(cells, mapping);
-                        if (mapped) {
-                            dataRows.push(mapped);
-                        }
+                        if (mapped) dataRows.push(mapped);
                     }
                     return dataRows;
                 },
@@ -298,28 +345,43 @@
                 },
 
                 resolveHeaderMapping(headers) {
-                    const reference = {
+                    const normalize = (s) => s
+                        .toLowerCase()
+                        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                        .replace(/[^a-z0-9]+/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+
+                    const keywords = {
                         component: [
-                            'component', 'component id', 'component_id', 'material', 'material number',
-                            'composant', 'numéro de composant', 'article', 'code article'
+                            ['component'], ['material'], ['material', 'number'], ['component', 'id'],
+                            ['composant'], ['numero', 'materiel'], ['code', 'article'], ['article']
                         ],
                         description: [
-                            'description', 'material description', 'component description',
-                            'désignation', 'description article'
+                            ['description'], ['material', 'description'], ['component', 'description'],
+                            ['designation'], ['designation', 'materiau'], ['description', 'article']
                         ],
                         qtyAssigned: [
-                            'qty assigned', 'qty_assigned', 'requirement qty', 'reqmnt qty',
-                            'qty requirement', 'qty required', 'quantité attribuée', 'quantité affectée'
+                            ['qty', 'assigned'], ['requirement', 'qty'], ['qty', 'required'],
+                            ['quantite', 'attribuee'], ['quantite', 'affectee'], ['qte', 'affectee'],
+                            ['besoin'], ['quantite', 'besoin']
                         ],
                         uom: [
-                            'uom', 'base unit of measure', 'unit', 'unité', 'unité de base', 'uom base'
+                            ['uom'], ['base', 'unit', 'measure'], ['unit'],
+                            ['unite'], ['unite', 'base'], ['unite', 'base', 'mesure']
                         ]
                     };
+
                     const mapping = {};
-                    headers.forEach((header, index) => {
-                        const match = Object.entries(reference).find(([, candidates]) => candidates.includes(header));
-                        if (match) {
-                            mapping[match[0]] = index;
+                    const norm = headers.map(h => normalize(h));
+                    const tryMatch = (h, groups) => groups.find(tokens => tokens.every(t => h.includes(t)));
+
+                    norm.forEach((h, idx) => {
+                        for (const [key, groups] of Object.entries(keywords)) {
+                            if (mapping[key] != null) continue;
+                            if (tryMatch(h, groups)) {
+                                mapping[key] = idx;
+                            }
                         }
                     });
                     return mapping;
