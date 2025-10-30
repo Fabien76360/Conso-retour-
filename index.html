@@ -188,6 +188,75 @@
                     });
                 },
 
+                splitMonospaceLineToCells(raw) {
+                    if (!raw) return [];
+                    return raw
+                        .replace(/&nbsp;/gi, ' ')
+                        .replace(/\u00A0/g, ' ')
+                        .replace(/\u202F/g, ' ')
+                        .replace(/\t/g, ' ')
+                        .split(/\s{2,}/)
+                        .map(s => s.trim())
+                        .filter(Boolean);
+                },
+
+                parseYmlrMonospaceHtml(text) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    const tables = Array.from(doc.querySelectorAll('table'));
+                    if (!tables.length) {
+                        return [];
+                    }
+
+                    const lines = [];
+                    for (const tbl of tables) {
+                        const rows = Array.from(tbl.querySelectorAll('tr'));
+                        for (const tr of rows) {
+                            const cells = Array.from(tr.cells);
+                            if (!cells.length) continue;
+                            const raw = cells.map(c => c.textContent || '').join(' ').trim();
+                            if (raw) {
+                                lines.push(raw);
+                            }
+                        }
+                    }
+                    if (!lines.length) {
+                        return [];
+                    }
+
+                    let headerCells = null;
+                    let headerIdx = -1;
+                    for (let i = 0; i < lines.length; i++) {
+                        const split = this.splitMonospaceLineToCells(lines[i]);
+                        if (split.length >= 4) {
+                            headerCells = split;
+                            headerIdx = i;
+                            break;
+                        }
+                    }
+                    if (!headerCells) {
+                        return [];
+                    }
+
+                    this.messages.push('En-têtes détectés (monospace) : ' + headerCells.join(' | '));
+                    const mapping = this.resolveHeaderMapping(headerCells);
+                    const hasAll = ['component', 'description', 'qtyAssigned', 'uom'].every(key => mapping[key] != null);
+                    if (!hasAll) {
+                        return [];
+                    }
+
+                    const data = [];
+                    for (let i = headerIdx + 1; i < lines.length; i++) {
+                        const split = this.splitMonospaceLineToCells(lines[i]);
+                        if (!split.length) continue;
+                        const mapped = this.mapRow(split, mapping);
+                        if (mapped) {
+                            data.push(mapped);
+                        }
+                    }
+                    return data;
+                },
+
                 handleFile(event) {
                     const file = event.target.files?.[0];
                     this.entries = [];
@@ -299,11 +368,25 @@
                     }
 
                     const dataRows = [];
+                    let oneCellRowCount = 0;
                     for (const tr of bodyRows) {
                         const cells = Array.from(tr.cells).map(cell => cell.textContent.trim());
+                        if (cells.length <= 1) {
+                            oneCellRowCount++;
+                        }
                         if (!cells.length || cells.every(value => value === '')) continue;
                         const mapped = this.mapRow(cells, mapping);
                         if (mapped) dataRows.push(mapped);
+                    }
+
+                    const majoritySingleCell = bodyRows.length > 0 && (oneCellRowCount / bodyRows.length) > 0.5;
+                    if (!dataRows.length || majoritySingleCell) {
+                        this.messages.push('Format YMLR « monospace » détecté – parseur dédié activé.');
+                        const alt = this.parseYmlrMonospaceHtml(text);
+                        if (alt.length) {
+                            return alt;
+                        }
+                        throw new Error('Aucune ligne exploitable : entêtes introuvables ou colonnes non détectées dans le HTML.');
                     }
                     return dataRows;
                 },
@@ -463,6 +546,32 @@
                     return `${value.toFixed(2)}%`;
                 },
 
+                parseNumberLike(value) {
+                    if (value == null) {
+                        return Number.NaN;
+                    }
+                    let v = String(value)
+                        .replace(/[%]/g, '')
+                        .replace(/\u00A0/g, '')
+                        .replace(/\u202F/g, '')
+                        .replace(/\s+/g, '');
+
+                    const lastComma = v.lastIndexOf(',');
+                    const lastDot = v.lastIndexOf('.');
+                    if (lastComma !== -1 && lastDot !== -1) {
+                        if (lastComma > lastDot) {
+                            v = v.replace(/\./g, '');
+                            v = v.replace(',', '.');
+                        } else {
+                            v = v.replace(/,/g, '');
+                        }
+                    } else if (lastComma !== -1) {
+                        v = v.replace(',', '.');
+                    }
+                    const parsed = parseFloat(v);
+                    return Number.isNaN(parsed) ? Number.NaN : parsed;
+                },
+
                 toNumber(value) {
                     if (typeof value === 'number') {
                         return value;
@@ -470,8 +579,7 @@
                     if (typeof value !== 'string') {
                         return Number.NaN;
                     }
-                    const cleaned = value.replace(/\s+/g, '').replace(',', '.');
-                    return parseFloat(cleaned);
+                    return this.parseNumberLike(value);
                 },
 
                 get canExport() {
