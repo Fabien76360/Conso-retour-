@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aperçu SAP YMLR</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f8;
+      color: #1c1c1c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      background: linear-gradient(135deg, #004578, #0078d4);
+      color: #ffffff;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.6rem 1.1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      background: rgba(255, 255, 255, 0.15);
+      color: inherit;
+      backdrop-filter: blur(4px);
+    }
+
+    button:hover,
+    button:focus-visible {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      outline: none;
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    #status {
+      margin-left: auto;
+      font-size: 0.9rem;
+      font-weight: 400;
+      min-width: 12rem;
+      text-align: right;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-rows: min-content 1fr;
+      background: radial-gradient(circle at top, rgba(0, 120, 212, 0.08), transparent 60%);
+      padding: 1.5rem;
+      gap: 1.5rem;
+    }
+
+    #drop-zone {
+      border: 2px dashed rgba(0, 70, 120, 0.6);
+      border-radius: 0.75rem;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 2rem;
+      text-align: center;
+      font-size: 1.05rem;
+      color: #004578;
+      position: relative;
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    #drop-zone.dragover {
+      border-color: #0078d4;
+      background: rgba(0, 120, 212, 0.1);
+      box-shadow: 0 0 0 4px rgba(0, 120, 212, 0.15);
+    }
+
+    #viewer {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 0.75rem;
+      background: #ffffff;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    @media (max-width: 768px) {
+      header {
+        gap: 0.75rem;
+        justify-content: center;
+      }
+
+      #status {
+        width: 100%;
+        text-align: center;
+        margin-left: 0;
+      }
+
+      main {
+        padding: 1rem;
+        gap: 1rem;
+      }
+
+      #drop-zone {
+        font-size: 0.95rem;
+        padding: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="actions">
+      <button id="import-btn" type="button">Importer le fichier YMLR (.htm)</button>
+      <button id="reset-btn" type="button">Réinitialiser</button>
+    </div>
+    <div id="status" role="status" aria-live="polite">Aucun fichier importé</div>
+  </header>
+  <main>
+    <div id="drop-zone" tabindex="0" aria-label="Zone de dépôt pour les fichiers YMLR">
+      Glissez et déposez votre fichier SAP YMLR (.htm) ici ou utilisez le bouton d'importation.
+    </div>
+    <iframe id="viewer" title="Aperçu du fichier YMLR" sandbox="allow-same-origin"></iframe>
+  </main>
+
+  <input type="file" id="file-input" accept=".htm,.html" hidden>
+
+  <script>
+    (function () {
+      const fileInput = document.getElementById('file-input');
+      const importBtn = document.getElementById('import-btn');
+      const resetBtn = document.getElementById('reset-btn');
+      const statusEl = document.getElementById('status');
+      const dropZone = document.getElementById('drop-zone');
+      const viewer = document.getElementById('viewer');
+      const defaultStatus = 'Aucun fichier importé';
+
+      const formatBytes = (bytes) => {
+        if (!Number.isFinite(bytes)) return '';
+        const units = ['octets', 'Ko', 'Mo', 'Go'];
+        if (bytes === 0) return '0 octet';
+        const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        const value = bytes / Math.pow(1024, index);
+        const formatter = new Intl.NumberFormat('fr-FR', {
+          maximumFractionDigits: index === 0 ? 0 : 1,
+        });
+        return `${formatter.format(value)} ${units[index]}`;
+      };
+
+      const sanitizeHtml = (content) => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(content, 'text/html');
+        doc.querySelectorAll('script').forEach((node) => node.remove());
+        return '<!DOCTYPE html>' + (doc.documentElement ? doc.documentElement.outerHTML : content);
+      };
+
+      const updateStatus = (message) => {
+        statusEl.textContent = message;
+      };
+
+      const isValidFile = (file) => file && /\.html?$/i.test(file.name);
+
+      const showFile = (file) => {
+        if (!file) {
+          return;
+        }
+        if (!isValidFile(file)) {
+          updateStatus('Format de fichier non pris en charge.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const rawContent = event.target.result;
+          const cleanedContent = sanitizeHtml(rawContent);
+          viewer.srcdoc = cleanedContent;
+          updateStatus(`${file.name} — ${formatBytes(file.size)}`);
+        };
+        reader.onerror = () => {
+          updateStatus('Erreur lors de la lecture du fichier.');
+        };
+        reader.readAsText(file, 'utf-8');
+      };
+
+      const resetViewer = () => {
+        viewer.srcdoc = '';
+        fileInput.value = '';
+        updateStatus(defaultStatus);
+        dropZone.classList.remove('loaded');
+      };
+
+      importBtn.addEventListener('click', () => fileInput.click());
+      resetBtn.addEventListener('click', resetViewer);
+
+      fileInput.addEventListener('change', (event) => {
+        const [file] = event.target.files;
+        showFile(file);
+      });
+
+      const handleDrop = (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('dragover');
+        const file = event.dataTransfer.files[0];
+        if (!isValidFile(file)) {
+          updateStatus('Format de fichier non pris en charge.');
+          return;
+        }
+        showFile(file);
+      };
+
+      dropZone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
+
+      dropZone.addEventListener('drop', handleDrop);
+
+      dropZone.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          fileInput.click();
+        }
+      });
+
+      // Prevent default browser behavior for the whole window when dragging files.
+      window.addEventListener('dragover', (event) => event.preventDefault());
+      window.addEventListener('drop', (event) => event.preventDefault());
+
+      updateStatus(defaultStatus);
+    })();
+  </script>
+</body>
+</html>
