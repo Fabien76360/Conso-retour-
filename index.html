@@ -6,162 +6,442 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     :root {
-      color-scheme: light dark;
+      color-scheme: light;
+      --bg: linear-gradient(135deg, #f6f9ff 0%, #eef3ff 40%, #ffffff 100%);
+      --surface: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --accent: #0a66c2;
+      --accent-2: #0958a8;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --warning-ink: #b45309;
+      --line: rgba(15, 23, 42, 0.12);
+      --shadow: 0 8px 24px rgba(2, 6, 23, 0.08);
+      --glass: rgba(255, 255, 255, 0.78);
+      --radius: 12px;
+      --transition: all 0.15s ease;
     }
 
     * {
       box-sizing: border-box;
     }
 
+    html,
+    body {
+      height: 100%;
+    }
+
     body {
       margin: 0;
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      background: #f7f7f8;
-      color: #1f1f1f;
+      font-size: 17px;
+      color: var(--ink);
+      background: var(--bg);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
-    header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 18px;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-      background: #ffffff;
-      flex-wrap: wrap;
+    h1,
+    h2 {
+      margin: 0;
+      color: var(--ink);
     }
 
-    header h1 {
-      margin: 0;
-      font-size: 1.05rem;
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    h2 {
+      font-size: 18px;
       font-weight: 600;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 16px 24px;
+      background: var(--glass);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    .title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 220px;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 0.95rem;
+      color: var(--muted);
     }
 
     .controls {
       display: flex;
-      gap: 10px;
       align-items: center;
-    }
-
-    button {
-      border: 1px solid rgba(0, 0, 0, 0.25);
-      background: #ffffff;
-      border-radius: 6px;
-      padding: 8px 14px;
-      font-size: 0.95rem;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease;
-    }
-
-    button:hover,
-    button:focus-visible {
-      border-color: #0067b8;
-      background: #e8f2ff;
-      outline: none;
-    }
-
-    button:active {
-      background: #dce9ff;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     #status {
       margin-left: auto;
-      font-size: 0.9rem;
-      color: #555;
-      min-width: 200px;
+      font-size: 0.95rem;
+      color: var(--muted);
+      min-width: 240px;
       text-align: right;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      min-height: 40px;
+      min-width: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button:hover {
+      background: #f5f8ff;
+      border-color: #c7d2fe;
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      background: #f8fafc;
+      color: #94a3b8;
+      border-color: var(--line);
+      transform: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: transparent;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-2);
+      border-color: transparent;
+    }
+
+    .btn-ghost {
+      background: transparent;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(148, 163, 184, 0.12);
+      border-color: rgba(148, 163, 184, 0.4);
+    }
+
+    nav[role="tablist"] {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      padding: 10px 18px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 999px;
+      font-weight: 500;
+      color: var(--muted);
+      transition: var(--transition);
+    }
+
+    .tab[aria-current="page"] {
+      background: #eaf3ff;
+      border-color: var(--accent);
+      color: #07467f;
+      box-shadow: 0 4px 12px rgba(10, 102, 194, 0.15);
+    }
+
+    .tab:hover {
+      color: var(--ink);
     }
 
     main {
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 18px;
-      gap: 18px;
-    }
-
-    #drop-zone {
-      flex: 0 0 auto;
-      border: 2px dashed rgba(0, 0, 0, 0.25);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.9);
+      gap: 24px;
       padding: 24px;
-      text-align: center;
-      color: #2d4a67;
-      font-size: 1rem;
-      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
-    }
-
-    #drop-zone.dragover {
-      border-color: #0a66c2;
-      background: #f0f6ff;
-      color: #0a3f78;
-    }
-
-    #placeholder {
-      color: #6a6a6a;
-      font-size: 0.95rem;
-    }
-
-    iframe {
-      width: 100%;
-      flex: 1;
-      border: 1px solid rgba(0, 0, 0, 0.15);
-      border-radius: 10px;
-      background: #ffffff;
-    }
-
-    @media (max-width: 640px) {
-      header {
-        justify-content: center;
-      }
-
-      #status {
-        width: 100%;
-        text-align: center;
-        margin-left: 0;
-      }
-
-      main {
-        padding: 14px;
-      }
-    }
-
-    /* Onglets + vues */
-    .tab {
-      padding: 8px 12px;
-      border: 1px solid rgba(0, 0, 0, 0.25);
-      background: #fff;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .tab[aria-current="page"] {
-      background: #e8f2ff;
-      border-color: #0a66c2;
     }
 
     section[role="tabpanel"] {
       display: none;
+      flex-direction: column;
+      gap: 24px;
     }
 
     section[role="tabpanel"].active {
       display: flex;
+    }
+
+    .panel-header {
+      display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 4px;
+    }
+
+    .panel-description {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    #drop-zone {
+      padding: 32px;
+      text-align: center;
+      color: #1e293b;
+      border: 2px dashed rgba(15, 23, 42, 0.18);
+      border-radius: var(--radius);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      box-shadow: var(--shadow);
+      transition: var(--transition);
+    }
+
+    #drop-zone:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+    }
+
+    #drop-zone .drop-icon {
+      font-size: 48px;
+      line-height: 1;
+    }
+
+    #drop-zone .drop-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    #drop-zone .drop-subtext {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    #drop-zone.dragover {
+      border-color: var(--accent);
+      background: #f0f6ff;
+      color: #0a3f78;
+      box-shadow: 0 12px 32px rgba(10, 102, 194, 0.18);
+    }
+
+    .viewer-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .viewer-label {
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    #viewer {
+      width: 100%;
+      min-height: 55vh;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      background: var(--surface);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #eaf3ff;
+      color: #0b305e;
+      padding: 14px 16px;
+      border-bottom: 1px solid #cfe0ff;
+      text-align: left;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    tbody td {
+      padding: 12px 16px;
+      border-top: 1px solid #eef2f7;
+      vertical-align: middle;
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #fcfdff;
+    }
+
+    tbody tr:hover {
+      background: #f7fbff;
+    }
+
+    td[data-col="consommer"] {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    td[data-col="retourner"] {
+      color: var(--warning-ink);
+      font-weight: 600;
+    }
+
+    .badge-warn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #fff7ed;
+      color: var(--warning-ink);
+      border: 1px solid #fed7aa;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid #d6e2f3;
+      border-radius: 10px;
+      font-size: 1rem;
+      background: #fff;
+      transition: var(--transition);
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-color: transparent;
+      box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.2);
+    }
+
+    .table-note {
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 900px) {
+      main {
+        padding: 20px;
+      }
+
+      table {
+        min-width: 600px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      header {
+        justify-content: flex-start;
+        padding: 16px;
+      }
+
+      .controls {
+        width: 100%;
+      }
+
+      nav[role="tablist"] {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      #status {
+        order: 4;
+        width: 100%;
+        text-align: left;
+        margin-left: 0;
+      }
+
+      main {
+        padding: 16px;
+      }
+
+      #drop-zone {
+        padding: 24px;
+      }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Aperçu SAP YMLR</h1>
-    <div class="controls">
-      <button id="import-btn" type="button">Importer le fichier YMLR (.htm)</button>
-      <button id="reset-btn" type="button">Réinitialiser</button>
+    <div class="title-group">
+      <h1>Aperçu SAP YMLR</h1>
+      <p class="subtitle">Import local sécurisé &amp; saisie opérateur</p>
     </div>
-    <nav role="tablist" aria-label="Navigation vues" style="margin-left:auto;display:flex;gap:8px;">
+    <div class="controls">
+      <button id="import-btn" type="button" class="btn-primary">Importer le fichier YMLR (.htm)</button>
+      <button id="reset-btn" type="button" class="btn-ghost">Réinitialiser</button>
+    </div>
+    <nav role="tablist" aria-label="Navigation vues">
       <button id="tab-import" class="tab" role="tab" aria-controls="view-import" aria-selected="true" aria-current="page">📂 Import YMLR</button>
       <button id="tab-operateur" class="tab" role="tab" aria-controls="view-operateur" aria-selected="false">👷 Page Opérateur</button>
     </nav>
@@ -171,58 +451,80 @@
   <main>
     <!-- Vue Import -->
     <section id="view-import" role="tabpanel" aria-labelledby="tab-import" class="active">
-      <div id="drop-zone" tabindex="0" aria-label="Zone de dépôt pour fichiers SAP YMLR">
-        <p>Glissez et déposez votre fichier SAP YMLR (.htm) ici ou cliquez sur «&nbsp;Importer&nbsp;».</p>
-        <p id="placeholder">Aucun fichier n'est chargé.</p>
+      <div class="panel-header">
+        <h2>Import local SAP YMLR</h2>
+        <p class="panel-description">Glissez votre export SAP, visualisez-le instantanément dans l’atelier en toute sécurité.</p>
       </div>
-      <iframe id="viewer" title="Aperçu du fichier YMLR" sandbox></iframe>
+      <div id="drop-zone" tabindex="0" aria-label="Zone de dépôt pour fichiers SAP YMLR">
+        <div class="drop-icon" aria-hidden="true">📂</div>
+        <p class="drop-title">Glissez votre fichier YMLR (.htm)</p>
+        <p class="drop-subtext">… ou utilisez le bouton « Importer » ci-dessus</p>
+        <p id="placeholder" class="drop-subtext">Aucun fichier n'est chargé.</p>
+      </div>
+      <div class="viewer-wrapper">
+        <span class="viewer-label">Aperçu sécurisé</span>
+        <iframe id="viewer" title="Aperçu du fichier YMLR" sandbox></iframe>
+      </div>
     </section>
 
     <!-- Vue Opérateur (maquette statique) -->
     <section id="view-operateur" role="tabpanel" aria-labelledby="tab-operateur">
-      <h2 style="margin:0 0 8px 0;">Saisie des restes – Fin de PO</h2>
-      <p style="color:#555;margin:0 0 12px 0;">Maquette statique. Aucun calcul. Données branchées plus tard.</p>
-      <div style="display:flex;gap:8px;margin:12px 0;">
-        <button class="tab" type="button" disabled>Enregistrer brouillon</button>
-        <button class="tab" type="button" disabled>Retour synthèse</button>
+      <div class="panel-header">
+        <h2>Saisie des restes – Fin de PO</h2>
+        <p class="panel-description">Maquette statique. Aucun calcul. Données connectées ultérieurement.</p>
       </div>
-      <div style="overflow:auto;border:1px solid rgba(0,0,0,.15);border-radius:10px;background:#fff;">
-        <table style="width:100%;border-collapse:collapse;">
-          <thead style="background:#f0f4f8;">
+      <div class="action-bar">
+        <button class="btn-ghost" type="button" disabled>Enregistrer brouillon</button>
+        <button class="btn-ghost" type="button" disabled>Retour synthèse</button>
+      </div>
+      <div class="table-wrap">
+        <table aria-label="Table opérateur">
+          <thead>
             <tr>
-              <th style="padding:10px;border:1px solid #ddd;">Article</th>
-              <th style="padding:10px;border:1px solid #ddd;">Description</th>
-              <th style="padding:10px;border:1px solid #ddd;">Assigné</th>
-              <th style="padding:10px;border:1px solid #ddd;">Déjà sorti</th>
-              <th style="padding:10px;border:1px solid #ddd;">Reste sur ligne</th>
-              <th style="padding:10px;border:1px solid #ddd;">À consommer</th>
-              <th style="padding:10px;border:1px solid #ddd;">À retourner</th>
-              <th style="padding:10px;border:1px solid #ddd;">UoM</th>
-              <th style="padding:10px;border:1px solid #ddd;">Alerte</th>
+              <th scope="col">Article</th>
+              <th scope="col">Description</th>
+              <th scope="col">Assigné</th>
+              <th scope="col">Déjà sorti</th>
+              <th scope="col">Reste sur ligne</th>
+              <th scope="col">À consommer</th>
+              <th scope="col">À retourner</th>
+              <th scope="col">UoM</th>
+              <th scope="col">Alerte</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td style="padding:10px;border:1px solid #ddd;">32743</td>
-              <td style="padding:10px;border:1px solid #ddd;">VIGN DOUBLE ENDUC 40X18 BLANC</td>
-              <td style="padding:10px;border:1px solid #ddd;">766,000</td>
-              <td style="padding:10px;border:1px solid #ddd;">0,000</td>
-              <td style="padding:10px;border:1px solid #ddd;"><input type="text" inputmode="decimal" placeholder="ex : 24" style="width:100%;padding:6px;"></td>
-              <td style="padding:10px;border:1px solid #ddd;">—</td>
-              <td style="padding:10px;border:1px solid #ddd;">—</td>
-              <td style="padding:10px;border:1px solid #ddd;">TH</td>
-              <td style="padding:10px;border:1px solid #ddd;">—</td>
+              <td>32743</td>
+              <td>VIGN DOUBLE ENDUC 40X18 BLANC</td>
+              <td>766,000</td>
+              <td>0,000</td>
+              <td><input type="text" inputmode="decimal" placeholder="ex : 24"></td>
+              <td data-col="consommer">—</td>
+              <td data-col="retourner">—</td>
+              <td>TH</td>
+              <td>—</td>
             </tr>
             <tr>
-              <td style="padding:10px;border:1px solid #ddd;">321031</td>
-              <td style="padding:10px;border:1px solid #ddd;">TIGE PISTON L54 PP FILETEE BIS</td>
-              <td style="padding:10px;border:1px solid #ddd;">140,000</td>
-              <td style="padding:10px;border:1px solid #ddd;">34,100</td>
-              <td style="padding:10px;border:1px solid #ddd;"><input type="text" inputmode="decimal" placeholder="ex : 6" style="width:100%;padding:6px;"></td>
-              <td style="padding:10px;border:1px solid #ddd;">—</td>
-              <td style="padding:10px;border:1px solid #ddd;">—</td>
-              <td style="padding:10px;border:1px solid #ddd;">TH</td>
-              <td style="padding:10px;border:1px solid #ddd;">⚠️</td>
+              <td>321031</td>
+              <td>TIGE PISTON L54 PP FILETEE BIS</td>
+              <td>140,000</td>
+              <td>34,100</td>
+              <td><input type="text" inputmode="decimal" placeholder="ex : 6"></td>
+              <td data-col="consommer">—</td>
+              <td data-col="retourner">—</td>
+              <td>TH</td>
+              <td><span class="badge-warn">⚠️ Alerte</span></td>
+            </tr>
+            <tr>
+              <td>302182</td>
+              <td>CAISSE 540×365×155 MÉCANISABLE</td>
+              <td>0,438</td>
+              <td>0,000</td>
+              <td><input type="text" inputmode="decimal" placeholder="0"></td>
+              <td data-col="consommer">—</td>
+              <td data-col="retourner">—</td>
+              <td>TH</td>
+              <td>—</td>
             </tr>
           </tbody>
         </table>
