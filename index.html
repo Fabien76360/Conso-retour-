@@ -483,6 +483,7 @@
             <tr>
               <th scope="col">Article</th>
               <th scope="col">Description</th>
+              <th scope="col">Planned Qty</th>
               <th scope="col">Assigné</th>
               <th scope="col">Déjà sorti</th>
               <th scope="col">Reste sur ligne</th>
@@ -510,18 +511,45 @@
       const lines = Array.from(doc.querySelectorAll('tr td'))
         .map((td) => td.textContent.replace(/\u00A0/g, ' ').trim())
         .filter((text) => text && /\d{5,}/.test(text));
-      const regex = /(\d{5,})\s+([A-Za-z0-9À-ÿ \-\/\(\)\.]+?)\s+([\d,\.]+)\s+([A-Z]+)/;
+      const regex = /(\d{5,})\s+([A-Za-z0-9À-ÿ \-\/().]+?)\s+([\d.,]+)(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?\s+([A-Z]+)/;
+      const toNum = (value) => {
+        if (value == null) return null;
+        const normalized = String(value)
+          .replace(/\u00A0|\u202F/g, '')
+          .replace(/\s+/g, '')
+          .replace(',', '.');
+        const parsed = parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+
       const data = [];
       for (const line of lines) {
         const match = regex.exec(line);
         if (!match) {
           continue;
         }
+        const mat = match[1];
+        const desc = match[2].trim();
+        const n1 = toNum(match[3]);
+        const n2 = toNum(match[4]);
+        const n3 = toNum(match[5]);
+        const n4 = toNum(match[6]);
+        const uom = match[7];
+
+        const planned = n1 ?? null;
+        const assigned = n2 ?? n4 ?? n1 ?? null;
+        const issued = n3 ?? null;
+        const total = n4 ?? n2 ?? n1 ?? null;
+
         data.push({
-          mat: match[1],
-          desc: match[2].trim(),
-          qty: match[3].replace(',', '.'),
-          uom: match[4],
+          mat,
+          desc,
+          planned,
+          assigned,
+          issued,
+          total,
+          uom,
+          qty: planned ?? null,
         });
       }
       return data;
@@ -534,24 +562,26 @@
       }
       tbody.innerHTML = '';
       if (!Array.isArray(data) || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#999;">Aucune donnée extraite du fichier YMLR.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;">Aucune donnée extraite du fichier YMLR.</td></tr>';
         const status = document.getElementById('status');
         if (status && lastFileSummary) {
           status.textContent = `${lastFileSummary} — aucune donnée extraite.`;
         }
         return;
       }
+      const fmt = (value) => (value == null ? '—' : String(value));
       for (const row of data) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${row.mat}</td>
           <td>${row.desc}</td>
-          <td>${row.qty}</td>
-          <td>—</td>
+          <td>${fmt(row.planned)}</td>
+          <td>${fmt(row.assigned ?? row.qty)}</td>
+          <td>${fmt(row.issued)}</td>
           <td><input type="text" inputmode="decimal" placeholder="0"></td>
           <td data-col="consommer">—</td>
           <td data-col="retourner">—</td>
-          <td>${row.uom}</td>
+          <td>${row.uom || '—'}</td>
           <td>—</td>`;
         tbody.appendChild(tr);
       }
