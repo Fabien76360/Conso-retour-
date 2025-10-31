@@ -292,6 +292,7 @@
     tbody td {
       padding: 12px;
       border-top: 1px solid #eef2f7;
+      vertical-align: top;
     }
 
     tbody tr:nth-child(odd) {
@@ -300,6 +301,108 @@
 
     tbody tr:hover {
       background: #f7fbff;
+    }
+
+    tbody tr.hu-row:hover {
+      background: transparent;
+    }
+
+    tbody tr.summary-row:hover {
+      background: #f1f5f9;
+    }
+
+    .material-row {
+      background: #f5f9ff;
+    }
+
+    .material-row td {
+      font-weight: 600;
+      color: #0b305e;
+      border-top: 2px solid #dbeafe;
+    }
+
+    .hu-row td {
+      padding: 0 12px 16px;
+      border-top: none;
+      background: #ffffff;
+    }
+
+    .hu-list {
+      list-style: none;
+      margin: 0;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #f8fbff;
+      border-radius: 10px;
+      border: 1px solid #dbeafe;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    .hu-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      font-size: 0.95rem;
+      color: #1e293b;
+    }
+
+    .hu-code {
+      font-weight: 600;
+      color: #0b305e;
+    }
+
+    .hu-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #334155;
+    }
+
+    .hu-meta strong {
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .hu-status {
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #eaf3ff;
+      color: #073b74;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .summary-row td {
+      background: #f1f5f9;
+      border-top: none;
+      padding-top: 10px;
+      padding-bottom: 14px;
+    }
+
+    .summary-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      color: #1e293b;
+      font-size: 0.95rem;
+    }
+
+    .summary-line strong {
+      font-size: 0.95rem;
+    }
+
+    .summary-pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid #cbd5f5;
+      font-weight: 600;
+      color: #0b305e;
     }
 
     td[data-col="consommer"] {
@@ -463,6 +566,16 @@
       return `${(size / (1024 * 1024)).toFixed(1)} Mo`;
     }
 
+    const escapeHtml = (value) => {
+      if (value == null) return '';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
     function clearView() {
       fileInput.value = '';
       viewer.removeAttribute('srcdoc');
@@ -478,16 +591,18 @@
     function extractYmlrData(html) {
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      const cells = Array.from(doc.querySelectorAll('tr td'));
-      const lines = cells
-        .map((td) => td.textContent.replace(/\u00A0/g, ' ').trim())
-        .filter((text) => text && /\d{5,}/.test(text));
 
-      const regex = /(\d{5,})\s+([A-Za-z0-9À-ÿ \-\/().]+?)\s+([\d.,]+)(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?\s+([A-Z]+)/;
+      const normalize = (value) =>
+        String(value ?? '')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/\u00A0|\u202F/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
 
       const toNum = (value) => {
-        if (value == null) return null;
+        if (value == null || value === '') return null;
         const normalized = String(value)
+          .replace(/&nbsp;/gi, ' ')
           .replace(/\u00A0|\u202F/g, '')
           .replace(/\s+/g, '')
           .replace(',', '.');
@@ -495,30 +610,115 @@
         return Number.isFinite(num) ? num : null;
       };
 
-      const data = [];
+      const rows = Array.from(doc.querySelectorAll('tr'))
+        .map((tr) => {
+          const cells = Array.from(tr.querySelectorAll('td')).map((td) => normalize(td.textContent));
+          const raw = normalize(cells.join(' ').trim());
+          return { cells, raw };
+        })
+        .filter((row) => row.raw && /\d{5,}/.test(row.raw));
 
-      for (const line of lines) {
-        if (/\bissued\b(?!\s*quantity)/i.test(line)) {
+      const regex = /(\d{5,})\s+([A-Za-z0-9À-ÿ \-\/().]+?)\s+([\d.,]+)(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?\s+([A-Z]+)/;
+      const isHuCode = (value) => /^\d{14,18}$/.test(value);
+      const isMaterialCode = (value) => /^\d{5,12}$/.test(value) && !isHuCode(value);
+
+      const parseHuRow = (cells) => {
+        const info = { batch: null, qty: null, status: null, packing: null };
+        const packingParts = [];
+
+        for (const cell of cells) {
+          if (!cell) continue;
+
+          if (!info.batch && /^\d{6,}$/.test(cell)) {
+            info.batch = cell;
+            continue;
+          }
+
+          const num = toNum(cell);
+          if (info.qty == null && num != null) {
+            info.qty = num;
+            continue;
+          }
+
+          if (!info.status && /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s-]{0,30}$/.test(cell)) {
+            info.status = cell;
+            continue;
+          }
+
+          packingParts.push(cell);
+        }
+
+        info.packing = packingParts.join(' ') || null;
+        return info;
+      };
+
+      const data = [];
+      let current = null;
+
+      for (const row of rows) {
+        const { cells, raw } = row;
+        if (!cells.length) continue;
+
+        if (cells.some((cell) => /^issued$/i.test(cell))) {
           continue;
         }
 
-        const match = regex.exec(line);
-        if (!match) continue;
+        const first = cells[0];
 
-        const mat = match[1];
-        const desc = match[2].trim();
-        const n1 = toNum(match[3]);
-        const n2 = toNum(match[4]);
-        const n3 = toNum(match[5]);
-        const n4 = toNum(match[6]);
-        const uom = match[7];
+        if (isHuCode(first)) {
+          if (!current) continue;
+          const huDetails = parseHuRow(cells.slice(1));
+          current.hu_list.push({
+            hu: first,
+            batch: huDetails.batch,
+            qty: huDetails.qty,
+            status: huDetails.status,
+            packing: huDetails.packing,
+          });
+          continue;
+        }
 
-        const planned = n1 ?? null;
-        const assigned = n2 ?? n4 ?? n1 ?? null;
-        const issued = n3 ?? null;
-        const total = n4 ?? n2 ?? n1 ?? null;
+        if (!isMaterialCode(first)) {
+          continue;
+        }
 
-        data.push({ mat, desc, planned, assigned, issued, total, uom });
+        const match = regex.exec(raw);
+        const mat = match ? match[1] : first;
+        const desc = match ? match[2].trim() : (cells[1] || '');
+        const n1 = match ? toNum(match[3]) : toNum(cells[2]);
+        const n2 = match ? toNum(match[4]) : toNum(cells[3]);
+        const n3 = match ? toNum(match[5]) : toNum(cells[4]);
+        const n4 = match ? toNum(match[6]) : toNum(cells[5]);
+        const uom = match ? match[7] : cells[cells.length - 1] || null;
+
+        if (current && current.material === mat && !current.summary) {
+          const hasSummaryData = n1 != null || n2 != null || n3 != null || n4 != null;
+          if (hasSummaryData) {
+            current.summary = {
+              planned: n1 ?? null,
+              assigned: n2 ?? n4 ?? n1 ?? null,
+              issued: n3 ?? null,
+              total: n4 ?? null,
+            };
+          }
+          if (!current.uom && uom) {
+            current.uom = uom;
+          }
+          continue;
+        }
+
+        current = {
+          material: mat,
+          description: desc,
+          planned: n1 ?? null,
+          assigned: n2 ?? n4 ?? n1 ?? null,
+          issued: n3 ?? null,
+          total: n4 ?? null,
+          uom: uom || null,
+          hu_list: [],
+          summary: null,
+        };
+        data.push(current);
       }
 
       return data;
@@ -533,28 +733,86 @@
         return;
       }
 
-      const fmt = (value) => {
+      const formatNumber = (value) => {
         if (value == null || Number.isNaN(value)) return '—';
         if (typeof value === 'number') {
           return value.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
         }
-        return String(value);
+        return escapeHtml(value);
       };
 
-      for (const row of data) {
+      for (const material of data) {
         const tr = document.createElement('tr');
+        tr.classList.add('material-row');
         tr.innerHTML = `
-          <td>${row.mat}</td>
-          <td>${row.desc}</td>
-          <td>${fmt(row.planned)}</td>
-          <td>${fmt(row.assigned ?? row.total ?? row.planned)}</td>
-          <td>${fmt(row.issued)}</td>
+          <td>${escapeHtml(material.material)}</td>
+          <td>${escapeHtml(material.description || '—')}</td>
+          <td>${formatNumber(material.planned)}</td>
+          <td>${formatNumber(material.assigned ?? material.total ?? material.planned)}</td>
+          <td>${formatNumber(material.issued)}</td>
           <td><input type="text" inputmode="decimal" placeholder="0"></td>
           <td data-col="consommer">—</td>
           <td data-col="retourner">—</td>
-          <td>${row.uom || '—'}</td>
+          <td>${escapeHtml(material.uom || '—')}</td>
           <td>—</td>`;
         tbody.appendChild(tr);
+
+        if (Array.isArray(material.hu_list) && material.hu_list.length) {
+          const huTr = document.createElement('tr');
+          huTr.classList.add('hu-row');
+          const huTd = document.createElement('td');
+          huTd.colSpan = 10;
+
+          const items = material.hu_list
+            .map((hu) => {
+              const parts = [];
+              if (hu.batch) {
+                parts.push(`<span class="hu-meta"><strong>Batch :</strong> ${escapeHtml(hu.batch)}</span>`);
+              }
+              if (hu.qty != null) {
+                const qtyText = formatNumber(hu.qty);
+                const uomLabel = material.uom ? ` ${escapeHtml(material.uom)}` : '';
+                parts.push(`<span class="hu-meta"><strong>Qté :</strong> ${qtyText}${uomLabel}</span>`);
+              }
+              if (hu.status) {
+                parts.push(`<span class="hu-status">${escapeHtml(hu.status)}</span>`);
+              }
+              if (hu.packing) {
+                parts.push(`<span class="hu-meta"><strong>Conditionnement :</strong> ${escapeHtml(hu.packing)}</span>`);
+              }
+              return `<li class="hu-line"><span class="hu-code">HU ${escapeHtml(hu.hu)}</span>${parts.length ? ` ${parts.join(' ')}` : ''}</li>`;
+            })
+            .join('');
+
+          huTd.innerHTML = `<ul class="hu-list">${items}</ul>`;
+          huTr.appendChild(huTd);
+          tbody.appendChild(huTr);
+        }
+
+        if (material.summary && (material.summary.planned != null || material.summary.assigned != null || material.summary.issued != null || material.summary.total != null)) {
+          const summaryTr = document.createElement('tr');
+          summaryTr.classList.add('summary-row');
+          const summaryTd = document.createElement('td');
+          summaryTd.colSpan = 10;
+
+          const pills = [];
+          if (material.summary.planned != null) {
+            pills.push(`<span class="summary-pill">Planned : ${formatNumber(material.summary.planned)}</span>`);
+          }
+          if (material.summary.assigned != null) {
+            pills.push(`<span class="summary-pill">Assigned : ${formatNumber(material.summary.assigned)}</span>`);
+          }
+          if (material.summary.issued != null) {
+            pills.push(`<span class="summary-pill">Issued : ${formatNumber(material.summary.issued)}</span>`);
+          }
+          if (material.summary.total != null && material.summary.total !== material.summary.assigned) {
+            pills.push(`<span class="summary-pill">Total : ${formatNumber(material.summary.total)}</span>`);
+          }
+
+          summaryTd.innerHTML = `<div class="summary-line"><strong>Récapitulatif</strong>${pills.length ? ` ${pills.join(' ')}` : ''}</div>`;
+          summaryTr.appendChild(summaryTd);
+          tbody.appendChild(summaryTr);
+        }
       }
     }
 
