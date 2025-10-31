@@ -599,6 +599,14 @@
           .replace(/\s+/g, ' ')
           .trim();
 
+      const splitTokens = (raw) =>
+        String(raw ?? '')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/\u00A0|\u202F/g, ' ')
+          .split(/\s{2,}|\t+|\r?\n+/)
+          .map((token) => token.trim())
+          .filter(Boolean);
+
       const toNum = (value) => {
         if (value == null || value === '') return null;
         const normalized = String(value)
@@ -610,42 +618,85 @@
         return Number.isFinite(num) ? num : null;
       };
 
-      const rows = Array.from(doc.querySelectorAll('tr'))
-        .map((tr) => {
-          const cells = Array.from(tr.querySelectorAll('td')).map((td) => normalize(td.textContent));
-          const raw = normalize(cells.join(' ').trim());
-          return { cells, raw };
-        })
-        .filter((row) => row.raw && /\d{5,}/.test(row.raw));
+      const collectLines = () => {
+        const result = [];
+        const seen = new Set();
+        const pushLine = (rawText, tokens) => {
+          if (!rawText || !/\d{5,}/.test(rawText) || !tokens.length) return;
+          const key = `${rawText}__${tokens[0] || ''}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          result.push({ raw: rawText, tokens });
+        };
+
+        const rows = Array.from(doc.querySelectorAll('tr'));
+
+        for (const tr of rows) {
+          const cellEls = Array.from(tr.querySelectorAll('td,th'));
+          const cellTexts = cellEls.map((cell) => normalize(cell.textContent));
+          const rawSource = cellEls.length ? cellTexts.join(' ') : String(tr.textContent || '');
+          const rawText = normalize(rawSource);
+          const tokens = cellEls.length ? cellTexts.filter(Boolean) : splitTokens(rawSource);
+          pushLine(rawText, tokens);
+        }
+
+        if (result.length) {
+          return result;
+        }
+
+        const fallbackSelectors = ['div', 'span'];
+        for (const selector of fallbackSelectors) {
+          const fallback = [];
+          const fallbackSeen = new Set();
+          const elements = Array.from(doc.querySelectorAll(selector));
+          for (const element of elements) {
+            const rawSource = String(element.textContent || '');
+            const rawText = normalize(rawSource);
+            const tokens = splitTokens(rawSource);
+            if (!tokens.length || !/\d{5,}/.test(rawText)) continue;
+            const key = `${rawText}__${tokens[0] || ''}`;
+            if (fallbackSeen.has(key)) continue;
+            fallbackSeen.add(key);
+            fallback.push({ raw: rawText, tokens });
+          }
+          if (fallback.length) {
+            return fallback;
+          }
+        }
+
+        return [];
+      };
+
+      const lines = collectLines();
 
       const regex = /(\d{5,})\s+([A-Za-z0-9À-ÿ \-\/().]+?)\s+([\d.,]+)(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?\s+([A-Z]+)/;
       const isHuCode = (value) => /^\d{14,18}$/.test(value);
       const isMaterialCode = (value) => /^\d{5,12}$/.test(value) && !isHuCode(value);
 
-      const parseHuRow = (cells) => {
+      const parseHuRow = (tokens) => {
         const info = { batch: null, qty: null, status: null, packing: null };
         const packingParts = [];
 
-        for (const cell of cells) {
-          if (!cell) continue;
+        for (const token of tokens) {
+          if (!token) continue;
 
-          if (!info.batch && /^\d{6,}$/.test(cell)) {
-            info.batch = cell;
+          if (!info.batch && /^\d{6,}$/.test(token)) {
+            info.batch = token;
             continue;
           }
 
-          const num = toNum(cell);
+          const num = toNum(token);
           if (info.qty == null && num != null) {
             info.qty = num;
             continue;
           }
 
-          if (!info.status && /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s-]{0,30}$/.test(cell)) {
-            info.status = cell;
+          if (!info.status && /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s-]{0,30}$/.test(token)) {
+            info.status = token;
             continue;
           }
 
-          packingParts.push(cell);
+          packingParts.push(token);
         }
 
         info.packing = packingParts.join(' ') || null;
@@ -655,19 +706,19 @@
       const data = [];
       let current = null;
 
-      for (const row of rows) {
-        const { cells, raw } = row;
-        if (!cells.length) continue;
+      for (const line of lines) {
+        const { raw, tokens } = line;
+        if (!tokens.length) continue;
 
-        if (cells.some((cell) => /^issued$/i.test(cell))) {
+        if (tokens.some((token) => /^issued$/i.test(token))) {
           continue;
         }
 
-        const first = cells[0];
+        const first = tokens[0];
 
         if (isHuCode(first)) {
           if (!current) continue;
-          const huDetails = parseHuRow(cells.slice(1));
+          const huDetails = parseHuRow(tokens.slice(1));
           current.hu_list.push({
             hu: first,
             batch: huDetails.batch,
@@ -684,12 +735,12 @@
 
         const match = regex.exec(raw);
         const mat = match ? match[1] : first;
-        const desc = match ? match[2].trim() : (cells[1] || '');
-        const n1 = match ? toNum(match[3]) : toNum(cells[2]);
-        const n2 = match ? toNum(match[4]) : toNum(cells[3]);
-        const n3 = match ? toNum(match[5]) : toNum(cells[4]);
-        const n4 = match ? toNum(match[6]) : toNum(cells[5]);
-        const uom = match ? match[7] : cells[cells.length - 1] || null;
+        const desc = match ? match[2].trim() : tokens[1] || '';
+        const n1 = match ? toNum(match[3]) : toNum(tokens[2]);
+        const n2 = match ? toNum(match[4]) : toNum(tokens[3]);
+        const n3 = match ? toNum(match[5]) : toNum(tokens[4]);
+        const n4 = match ? toNum(match[6]) : toNum(tokens[5]);
+        const uom = match ? match[7] : tokens[tokens.length - 1] || null;
 
         if (current && current.material === mat && !current.summary) {
           const hasSummaryData = n1 != null || n2 != null || n3 != null || n4 != null;
@@ -719,6 +770,10 @@
           summary: null,
         };
         data.push(current);
+      }
+
+      if (!data.length) {
+        console.log('DEBUG lines:', lines.slice(0, 5).map((line) => line.raw));
       }
 
       return data;
@@ -832,9 +887,13 @@
         viewer.srcdoc = cleaned;
         viewer.style.display = 'block';
         placeholder.style.display = 'none';
-        setStatus(`${file.name} — ${formatSize(file.size)}`);
+        const fileInfo = `${file.name} — ${formatSize(file.size)}`;
+        setStatus(fileInfo);
         const extracted = extractYmlrData(cleaned);
         renderOperatorTable(extracted);
+        if (!extracted.length) {
+          setStatus('⚠️ Aucune donnée valide trouvée dans le fichier YMLR.');
+        }
       };
       reader.readAsText(file);
     }
