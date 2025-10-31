@@ -493,39 +493,6 @@
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>32743</td>
-              <td>VIGN DOUBLE ENDUC 40X18 BLANC</td>
-              <td>766,000</td>
-              <td>0,000</td>
-              <td><input type="text" inputmode="decimal" placeholder="ex : 24"></td>
-              <td data-col="consommer">—</td>
-              <td data-col="retourner">—</td>
-              <td>TH</td>
-              <td>—</td>
-            </tr>
-            <tr>
-              <td>321031</td>
-              <td>TIGE PISTON L54 PP FILETEE BIS</td>
-              <td>140,000</td>
-              <td>34,100</td>
-              <td><input type="text" inputmode="decimal" placeholder="ex : 6"></td>
-              <td data-col="consommer">—</td>
-              <td data-col="retourner">—</td>
-              <td>TH</td>
-              <td><span class="badge-warn">⚠️ Alerte</span></td>
-            </tr>
-            <tr>
-              <td>302182</td>
-              <td>CAISSE 540×365×155 MÉCANISABLE</td>
-              <td>0,438</td>
-              <td>0,000</td>
-              <td><input type="text" inputmode="decimal" placeholder="0"></td>
-              <td data-col="consommer">—</td>
-              <td data-col="retourner">—</td>
-              <td>TH</td>
-              <td>—</td>
-            </tr>
           </tbody>
         </table>
       </div>
@@ -535,6 +502,65 @@
   <input type="file" id="file-input" accept=".htm,.html" hidden>
 
   <script>
+    let lastFileSummary = '';
+
+    function extractYmlrData(html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const lines = Array.from(doc.querySelectorAll('tr td'))
+        .map((td) => td.textContent.replace(/\u00A0/g, ' ').trim())
+        .filter((text) => text && /\d{5,}/.test(text));
+      const regex = /(\d{5,})\s+([A-Za-z0-9À-ÿ \-\/\(\)\.]+?)\s+([\d,\.]+)\s+([A-Z]+)/;
+      const data = [];
+      for (const line of lines) {
+        const match = regex.exec(line);
+        if (!match) {
+          continue;
+        }
+        data.push({
+          mat: match[1],
+          desc: match[2].trim(),
+          qty: match[3].replace(',', '.'),
+          uom: match[4],
+        });
+      }
+      return data;
+    }
+
+    function renderOperatorTable(data) {
+      const tbody = document.querySelector('#view-operateur tbody');
+      if (!tbody) {
+        return;
+      }
+      tbody.innerHTML = '';
+      if (!Array.isArray(data) || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#999;">Aucune donnée extraite du fichier YMLR.</td></tr>';
+        const status = document.getElementById('status');
+        if (status && lastFileSummary) {
+          status.textContent = `${lastFileSummary} — aucune donnée extraite.`;
+        }
+        return;
+      }
+      for (const row of data) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.mat}</td>
+          <td>${row.desc}</td>
+          <td>${row.qty}</td>
+          <td>—</td>
+          <td><input type="text" inputmode="decimal" placeholder="0"></td>
+          <td data-col="consommer">—</td>
+          <td data-col="retourner">—</td>
+          <td>${row.uom}</td>
+          <td>—</td>`;
+        tbody.appendChild(tr);
+      }
+      const status = document.getElementById('status');
+      if (status && lastFileSummary) {
+        status.textContent = `${lastFileSummary} — ${data.length} lignes extraites.`;
+      }
+    }
+
     (function () {
       const fileInput = document.getElementById('file-input');
       const importBtn = document.getElementById('import-btn');
@@ -567,7 +593,9 @@
         viewer.removeAttribute('srcdoc');
         fileInput.value = '';
         placeholder.textContent = "Aucun fichier n'est chargé.";
+        lastFileSummary = '';
         setStatus(defaultStatus);
+        renderOperatorTable([]);
       }
 
       function showFile(file) {
@@ -586,7 +614,10 @@
           const cleaned = sanitize(raw);
           viewer.srcdoc = cleaned;
           placeholder.textContent = 'Fichier chargé. Aperçu ci-dessous.';
-          setStatus(`${file.name} — ${formatSize(file.size)}`);
+          lastFileSummary = `${file.name} — ${formatSize(file.size)}`;
+          setStatus(lastFileSummary);
+          const extracted = extractYmlrData(cleaned);
+          renderOperatorTable(extracted);
         };
         reader.readAsText(file, 'utf-8');
       }
