@@ -535,10 +535,10 @@
 
       const data = [];
       for (const line of lines) {
-        const tokens = splitTokens(line);
-        if (tokens.some((token) => /^issued$/i.test(token))) {
+        if (/\bissued\b(?!\s*quantity)/i.test(line)) {
           continue;
         }
+
         const match = regex.exec(line);
         if (!match) {
           continue;
