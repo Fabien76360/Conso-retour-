@@ -485,7 +485,7 @@
               <th scope="col">Description</th>
               <th scope="col">Planned Qty</th>
               <th scope="col">Assigné</th>
-              <th scope="col">Déjà sorti</th>
+              <th scope="col">Issued Quantity</th>
               <th scope="col">Reste sur ligne</th>
               <th scope="col">À consommer</th>
               <th scope="col">À retourner</th>
@@ -522,8 +522,23 @@
         return Number.isFinite(parsed) ? parsed : null;
       };
 
+      function splitTokens(raw) {
+        return String(raw)
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/\u00A0|\u202F/g, ' ')
+          .replace(/\t/g, ' ')
+          .trim()
+          .split(/\s{2,}/)
+          .map((segment) => segment.trim())
+          .filter(Boolean);
+      }
+
       const data = [];
       for (const line of lines) {
+        const tokens = splitTokens(line);
+        if (tokens.some((token) => /^issued$/i.test(token))) {
+          continue;
+        }
         const match = regex.exec(line);
         if (!match) {
           continue;
