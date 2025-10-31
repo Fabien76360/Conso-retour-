@@ -18,7 +18,6 @@
       --warning-ink: #b45309;
       --line: rgba(15, 23, 42, 0.12);
       --shadow: 0 8px 24px rgba(2, 6, 23, 0.08);
-      --glass: rgba(255, 255, 255, 0.78);
       --radius: 12px;
       font-size: 17px;
     }
@@ -59,6 +58,10 @@
       font-weight: 600;
     }
 
+    p {
+      margin: 0;
+    }
+
     header {
       position: sticky;
       top: 0;
@@ -68,7 +71,7 @@
       gap: 16px;
       flex-wrap: wrap;
       padding: 16px 24px;
-      background: var(--glass);
+      background: rgba(255, 255, 255, 0.78);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--line);
       box-shadow: var(--shadow);
@@ -79,11 +82,10 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
-      min-width: 220px;
+      min-width: 240px;
     }
 
     .subtitle {
-      margin: 0;
       font-size: 0.95rem;
       color: var(--muted);
     }
@@ -95,8 +97,15 @@
       flex-wrap: wrap;
     }
 
-    #status {
+    nav[role="tablist"] {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
       margin-left: auto;
+    }
+
+    #status {
       font-size: 0.95rem;
       color: var(--muted);
       min-width: 240px;
@@ -164,111 +173,107 @@
       background: #f8fafc;
     }
 
-    nav[role="tablist"] {
-      display: flex;
-      gap: 10px;
-    }
-
     .tab {
-      padding: 10px 18px;
+      padding: 8px 14px;
       border: 1px solid var(--line);
       background: #ffffff;
       border-radius: 999px;
       font-weight: 500;
+      transition: all 0.18s ease;
     }
 
     .tab[aria-current="page"] {
       background: #eaf3ff;
       border-color: var(--accent);
       color: #073b74;
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.18);
     }
 
     main {
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 20px;
-      gap: 20px;
+      padding: 24px;
+      gap: 24px;
     }
 
     section[role="tabpanel"] {
       display: none;
-    }
-
-    section[role="tabpanel"].active {
-      display: flex;
       flex-direction: column;
       gap: 20px;
     }
 
-    .import-card {
-      border: 1px dashed var(--line);
-      border-radius: var(--radius);
-      background: var(--surface);
-      padding: 30px 24px;
-      text-align: center;
-      color: #1e293b;
-      box-shadow: var(--shadow);
+    section[role="tabpanel"].active {
+      display: flex;
     }
 
-    .import-card strong {
-      display: block;
-      font-size: 1.05rem;
-      margin-bottom: 8px;
+    .card {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
     }
 
     #drop-zone {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
+      border: 2px dashed var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 32px 24px;
+      text-align: center;
+      color: #1e293b;
+      box-shadow: var(--shadow);
+      transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
     }
 
     #drop-zone.dragover {
-      border-radius: var(--radius);
+      border-color: var(--accent);
       background: #f0f6ff;
-      border: 2px dashed var(--accent);
-      padding: 28px 22px;
+      color: #0a3f78;
+      transform: translateY(-1px);
+    }
+
+    .drop-icon {
+      font-size: 42px;
+      margin-bottom: 12px;
     }
 
     #placeholder {
+      margin-top: 12px;
       color: var(--muted);
-      margin: 0;
+      font-size: 0.95rem;
     }
 
-    #viewer {
+    iframe {
       width: 100%;
+      min-height: 360px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: #ffffff;
+      background: var(--surface);
       box-shadow: var(--shadow);
-      min-height: 420px;
       display: none;
     }
 
-    .operator-header {
+    .section-header {
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
 
-    .operator-header p {
-      margin: 0;
+    .section-description {
       color: var(--muted);
+      font-size: 0.95rem;
     }
 
     .operator-actions {
       display: flex;
-      gap: 12px;
       flex-wrap: wrap;
+      gap: 12px;
     }
 
     .table-wrap {
       overflow: auto;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: #ffffff;
+      background: var(--surface);
       box-shadow: var(--shadow);
     }
 
@@ -285,14 +290,15 @@
       background: #f0f6ff;
       color: #0b305e;
       padding: 12px;
-      border-bottom: 1px solid #dbeafe;
       text-align: left;
+      border-bottom: 1px solid #dbeafe;
+      font-weight: 600;
     }
 
     tbody td {
-      padding: 12px;
+      padding: 11px 12px;
       border-top: 1px solid #eef2f7;
-      vertical-align: top;
+      vertical-align: middle;
     }
 
     tbody tr:nth-child(odd) {
@@ -301,108 +307,6 @@
 
     tbody tr:hover {
       background: #f7fbff;
-    }
-
-    tbody tr.hu-row:hover {
-      background: transparent;
-    }
-
-    tbody tr.summary-row:hover {
-      background: #f1f5f9;
-    }
-
-    .material-row {
-      background: #f5f9ff;
-    }
-
-    .material-row td {
-      font-weight: 600;
-      color: #0b305e;
-      border-top: 2px solid #dbeafe;
-    }
-
-    .hu-row td {
-      padding: 0 12px 16px;
-      border-top: none;
-      background: #ffffff;
-    }
-
-    .hu-list {
-      list-style: none;
-      margin: 0;
-      padding: 14px 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      background: #f8fbff;
-      border-radius: 10px;
-      border: 1px solid #dbeafe;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    }
-
-    .hu-line {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
-      font-size: 0.95rem;
-      color: #1e293b;
-    }
-
-    .hu-code {
-      font-weight: 600;
-      color: #0b305e;
-    }
-
-    .hu-meta {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      color: #334155;
-    }
-
-    .hu-meta strong {
-      font-weight: 600;
-      color: #1e293b;
-    }
-
-    .hu-status {
-      padding: 3px 10px;
-      border-radius: 999px;
-      background: #eaf3ff;
-      color: #073b74;
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-transform: capitalize;
-    }
-
-    .summary-row td {
-      background: #f1f5f9;
-      border-top: none;
-      padding-top: 10px;
-      padding-bottom: 14px;
-    }
-
-    .summary-line {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
-      color: #1e293b;
-      font-size: 0.95rem;
-    }
-
-    .summary-line strong {
-      font-size: 0.95rem;
-    }
-
-    .summary-pill {
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: #ffffff;
-      border: 1px solid #cbd5f5;
-      font-weight: 600;
-      color: #0b305e;
     }
 
     td[data-col="consommer"] {
@@ -415,15 +319,26 @@
       font-weight: 600;
     }
 
+    .badge-warn {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: #fff7ed;
+      color: var(--warning-ink);
+      border: 1px solid #fed7aa;
+      font-size: 0.9rem;
+    }
+
     input[type="text"],
     input[type="number"] {
       width: 100%;
-      min-height: 40px;
-      padding: 8px 10px;
+      min-height: 42px;
+      padding: 8px 12px;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
       font-size: 1rem;
       background: #ffffff;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
     }
 
     input[type="text"]:focus,
@@ -431,35 +346,35 @@
       outline: 2px solid var(--accent);
       outline-offset: 2px;
       border-color: transparent;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
+    }
+
+    .empty-row {
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-style: italic;
     }
 
     @media (max-width: 720px) {
       header {
-        padding: 14px 16px;
-      }
-
-      main {
         padding: 16px;
       }
 
-      #status {
-        order: 3;
-        width: 100%;
-        text-align: left;
-        min-width: auto;
-      }
-
       nav[role="tablist"] {
-        width: 100%;
-        justify-content: flex-start;
+        margin-left: 0;
       }
 
-      .import-card {
-        padding: 24px 18px;
+      #status {
+        text-align: left;
       }
 
-      table {
-        min-width: 640px;
+      main {
+        padding: 20px;
+      }
+
+      .table-wrap {
+        box-shadow: none;
       }
     }
   </style>
@@ -468,40 +383,43 @@
   <header>
     <div class="title-group">
       <h1>Conso &amp; Retour SAP – Fin de PO</h1>
-      <p class="subtitle">Import sécurisé des exports YMLR et préparation opérateur.</p>
+      <p class="subtitle">Import sécurisé YMLR et préparation opérateur</p>
     </div>
     <div class="controls">
-      <label for="file-input" class="btn-primary" id="import-btn" role="button" tabindex="0">📂 Importer le fichier</label>
-      <input type="file" id="file-input" accept=".htm,.html,text/html" hidden>
-      <button type="button" class="btn-ghost" id="reset-btn">↺ Réinitialiser</button>
-      <nav role="tablist" aria-label="Navigation vues">
-        <button id="tab-import" class="tab" role="tab" aria-controls="view-import" aria-selected="true" aria-current="page">📂 Import YMLR</button>
-        <button id="tab-operateur" class="tab" role="tab" aria-controls="view-operateur" aria-selected="false">👷 Page Opérateur</button>
-      </nav>
+      <label for="file" class="btn-primary">📂 Importer le fichier YMLR (.htm)</label>
+      <input id="file" type="file" accept=".htm,.html,text/html" hidden>
+      <button id="reset-btn" type="button" class="btn-ghost">Réinitialiser</button>
     </div>
-    <div id="status" aria-live="polite">Aucun fichier chargé.</div>
+    <nav role="tablist" aria-label="Navigation des vues">
+      <button id="tab-import" class="tab" role="tab" aria-controls="view-import" aria-selected="true" aria-current="page">📂 Import YMLR</button>
+      <button id="tab-operateur" class="tab" role="tab" aria-controls="view-operateur" aria-selected="false">👷 Page Opérateur</button>
+    </nav>
+    <div id="status" aria-live="polite">Aucun fichier chargé</div>
   </header>
 
   <main>
     <section id="view-import" role="tabpanel" aria-labelledby="tab-import" class="active">
-      <div class="import-card" id="drop-zone" tabindex="0" aria-label="Zone de dépôt pour fichiers SAP YMLR">
-        <strong>📂 Glissez votre fichier YMLR (.htm) ou cliquez sur «&nbsp;Importer&nbsp;».</strong>
-        <p id="placeholder">Aucun fichier n'est chargé.</p>
+      <div class="card">
+        <div id="drop-zone" tabindex="0" aria-label="Zone de dépôt pour fichiers SAP YMLR">
+          <div class="drop-icon" aria-hidden="true">📂</div>
+          <p>Glissez votre fichier SAP YMLR (.htm) ou cliquez sur «&nbsp;Importer&nbsp;».</p>
+          <p id="placeholder">Aucun fichier n'est chargé.</p>
+        </div>
+        <iframe id="viewer" title="Aperçu du fichier YMLR" sandbox=""></iframe>
       </div>
-      <iframe id="viewer" title="Aperçu du fichier YMLR" sandbox></iframe>
     </section>
 
     <section id="view-operateur" role="tabpanel" aria-labelledby="tab-operateur">
-      <div class="operator-header">
-        <h2>Préparation opérateur</h2>
-        <p>Les données extraites s'affichent après import. Saisie sans calcul automatique.</p>
+      <div class="section-header">
+        <h2>Articles et retours opérateur</h2>
+        <p class="section-description">Les lignes extraites du fichier YMLR apparaissent ci-dessous pour préparer la saisie en fin de production.</p>
       </div>
       <div class="operator-actions">
         <button type="button" class="btn-ghost" disabled>Enregistrer brouillon</button>
         <button type="button" class="btn-ghost" disabled>Retour synthèse</button>
       </div>
       <div class="table-wrap">
-        <table aria-label="Articles extraits du YMLR">
+        <table aria-label="Tableau des articles extraits du YMLR">
           <thead>
             <tr>
               <th scope="col">Article</th>
@@ -517,6 +435,9 @@
             </tr>
           </thead>
           <tbody>
+            <tr>
+              <td colspan="10" class="empty-row">Importez un fichier YMLR pour afficher les articles à traiter.</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -530,7 +451,7 @@
     const viewOperateur = document.getElementById('view-operateur');
 
     function show(view) {
-      [viewImport, viewOperateur].forEach((panel) => panel.classList.remove('active'));
+      [viewImport, viewOperateur].forEach(section => section.classList.remove('active'));
       view.classList.add('active');
       const isImport = view === viewImport;
       tabImport.setAttribute('aria-selected', String(isImport));
@@ -547,233 +468,136 @@
     tabImport.addEventListener('click', () => show(viewImport));
     tabOperateur.addEventListener('click', () => show(viewOperateur));
 
-    const fileInput = document.getElementById('file-input');
-    const importBtn = document.getElementById('import-btn');
+    const fileInput = document.getElementById('file');
     const dropZone = document.getElementById('drop-zone');
     const viewer = document.getElementById('viewer');
     const placeholder = document.getElementById('placeholder');
-    const resetBtn = document.getElementById('reset-btn');
     const statusEl = document.getElementById('status');
+    const resetBtn = document.getElementById('reset-btn');
 
     function setStatus(text) {
       statusEl.textContent = text;
     }
 
-    function formatSize(size) {
-      if (!Number.isFinite(size)) return '';
-      if (size < 1024) return `${size} o`;
-      if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} Ko`;
-      return `${(size / (1024 * 1024)).toFixed(1)} Mo`;
+    function formatSize(bytes) {
+      if (!Number.isFinite(bytes)) return '';
+      if (bytes < 1024) return `${bytes} o`;
+      const kb = bytes / 1024;
+      return `${kb.toFixed(kb >= 10 ? 0 : 1)} Ko`;
     }
 
-    const escapeHtml = (value) => {
-      if (value == null) return '';
-      return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    };
-
     function clearView() {
-      fileInput.value = '';
       viewer.removeAttribute('srcdoc');
       viewer.style.display = 'none';
-      placeholder.style.display = 'block';
       placeholder.textContent = "Aucun fichier n'est chargé.";
-      setStatus('Aucun fichier chargé.');
+      dropZone.classList.remove('dragover');
+      fileInput.value = '';
       renderOperatorTable([]);
+      setStatus('Aucun fichier chargé');
     }
 
     resetBtn.addEventListener('click', clearView);
 
+    function sanitizeContent(raw) {
+      return raw.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+    }
+
+    function loadFile(file) {
+      if (!file) return;
+      const isHtml = /\.html?$/.test(file.name) || file.type === 'text/html' || file.type === '';
+      if (!isHtml) {
+        setStatus('Format non reconnu. Sélectionnez un fichier .htm/.html export SAP YMLR.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onerror = () => setStatus('Erreur de lecture du fichier.');
+      reader.onload = () => {
+        const raw = String(reader.result);
+        const cleaned = sanitizeContent(raw);
+        viewer.srcdoc = cleaned;
+        viewer.style.display = 'block';
+        placeholder.textContent = 'Aperçu chargé ci-dessous.';
+        const extracted = extractYmlrData(cleaned);
+        renderOperatorTable(extracted);
+        setStatus(`Chargé : ${file.name} — ${formatSize(file.size)} • ${extracted.length} lignes extraites`);
+      };
+      reader.readAsText(file);
+    }
+
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files && event.target.files[0];
+      loadFile(file);
+    });
+
+    ['dragenter', 'dragover'].forEach(type => {
+      dropZone.addEventListener(type, (event) => {
+        event.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(type => {
+      dropZone.addEventListener(type, (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('dragover');
+      });
+    });
+
+    dropZone.addEventListener('drop', (event) => {
+      const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      loadFile(file);
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
     function extractYmlrData(html) {
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
+      const lines = Array.from(doc.querySelectorAll('tr td'))
+        .map((td) => td.textContent.replace(/\u00A0|\u202F/g, ' ').replace(/\s+/g, ' ').trim())
+        .filter((text) => text && /\d{5,}/.test(text));
 
-      const normalize = (value) =>
-        String(value ?? '')
-          .replace(/&nbsp;/gi, ' ')
-          .replace(/\u00A0|\u202F/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-      const splitTokens = (raw) =>
-        String(raw ?? '')
-          .replace(/&nbsp;/gi, ' ')
-          .replace(/\u00A0|\u202F/g, ' ')
-          .split(/\s{2,}|\t+|\r?\n+/)
-          .map((token) => token.trim())
-          .filter(Boolean);
-
+      const regex = /(\d{5,})\s+([A-Za-z0-9À-ÿ \-\/().]+?)\s+([\d.,]+)(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?\s+([A-Z]+)/;
       const toNum = (value) => {
-        if (value == null || value === '') return null;
+        if (value == null) return null;
         const normalized = String(value)
-          .replace(/&nbsp;/gi, ' ')
           .replace(/\u00A0|\u202F/g, '')
           .replace(/\s+/g, '')
           .replace(',', '.');
-        const num = parseFloat(normalized);
-        return Number.isFinite(num) ? num : null;
-      };
-
-      const collectLines = () => {
-        const result = [];
-        const seen = new Set();
-        const pushLine = (rawText, tokens) => {
-          if (!rawText || !/\d{5,}/.test(rawText) || !tokens.length) return;
-          const key = `${rawText}__${tokens[0] || ''}`;
-          if (seen.has(key)) return;
-          seen.add(key);
-          result.push({ raw: rawText, tokens });
-        };
-
-        const rows = Array.from(doc.querySelectorAll('tr'));
-
-        for (const tr of rows) {
-          const cellEls = Array.from(tr.querySelectorAll('td,th'));
-          const cellTexts = cellEls.map((cell) => normalize(cell.textContent));
-          const rawSource = cellEls.length ? cellTexts.join(' ') : String(tr.textContent || '');
-          const rawText = normalize(rawSource);
-          const tokens = cellEls.length ? cellTexts.filter(Boolean) : splitTokens(rawSource);
-          pushLine(rawText, tokens);
-        }
-
-        if (result.length) {
-          return result;
-        }
-
-        const fallbackSelectors = ['div', 'span'];
-        for (const selector of fallbackSelectors) {
-          const fallback = [];
-          const fallbackSeen = new Set();
-          const elements = Array.from(doc.querySelectorAll(selector));
-          for (const element of elements) {
-            const rawSource = String(element.textContent || '');
-            const rawText = normalize(rawSource);
-            const tokens = splitTokens(rawSource);
-            if (!tokens.length || !/\d{5,}/.test(rawText)) continue;
-            const key = `${rawText}__${tokens[0] || ''}`;
-            if (fallbackSeen.has(key)) continue;
-            fallbackSeen.add(key);
-            fallback.push({ raw: rawText, tokens });
-          }
-          if (fallback.length) {
-            return fallback;
-          }
-        }
-
-        return [];
-      };
-
-      const lines = collectLines();
-
-      const regex = /(\d{5,})\s+([A-Za-z0-9À-ÿ \-\/().]+?)\s+([\d.,]+)(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?\s+([A-Z]+)/;
-      const isHuCode = (value) => /^\d{14,18}$/.test(value);
-      const isMaterialCode = (value) => /^\d{5,12}$/.test(value) && !isHuCode(value);
-
-      const parseHuRow = (tokens) => {
-        const info = { batch: null, qty: null, status: null, packing: null };
-        const packingParts = [];
-
-        for (const token of tokens) {
-          if (!token) continue;
-
-          if (!info.batch && /^\d{6,}$/.test(token)) {
-            info.batch = token;
-            continue;
-          }
-
-          const num = toNum(token);
-          if (info.qty == null && num != null) {
-            info.qty = num;
-            continue;
-          }
-
-          if (!info.status && /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s-]{0,30}$/.test(token)) {
-            info.status = token;
-            continue;
-          }
-
-          packingParts.push(token);
-        }
-
-        info.packing = packingParts.join(' ') || null;
-        return info;
+        const parsed = parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
       };
 
       const data = [];
-      let current = null;
-
       for (const line of lines) {
-        const { raw, tokens } = line;
-        if (!tokens.length) continue;
-
-        if (tokens.some((token) => /^issued$/i.test(token))) {
+        if (/\bissued\b(?!\s*quantity)/i.test(line)) {
           continue;
         }
+        const match = regex.exec(line);
+        if (!match) continue;
+        const mat = match[1];
+        const desc = match[2].trim();
+        const n1 = toNum(match[3]);
+        const n2 = toNum(match[4]);
+        const n3 = toNum(match[5]);
+        const n4 = toNum(match[6]);
+        const uom = match[7];
 
-        const first = tokens[0];
+        const planned = n1 ?? null;
+        const assigned = n2 ?? n4 ?? n1 ?? null;
+        const issued = n3 ?? null;
+        const total = n4 ?? n2 ?? n1 ?? null;
 
-        if (isHuCode(first)) {
-          if (!current) continue;
-          const huDetails = parseHuRow(tokens.slice(1));
-          current.hu_list.push({
-            hu: first,
-            batch: huDetails.batch,
-            qty: huDetails.qty,
-            status: huDetails.status,
-            packing: huDetails.packing,
-          });
-          continue;
-        }
-
-        if (!isMaterialCode(first)) {
-          continue;
-        }
-
-        const match = regex.exec(raw);
-        const mat = match ? match[1] : first;
-        const desc = match ? match[2].trim() : tokens[1] || '';
-        const n1 = match ? toNum(match[3]) : toNum(tokens[2]);
-        const n2 = match ? toNum(match[4]) : toNum(tokens[3]);
-        const n3 = match ? toNum(match[5]) : toNum(tokens[4]);
-        const n4 = match ? toNum(match[6]) : toNum(tokens[5]);
-        const uom = match ? match[7] : tokens[tokens.length - 1] || null;
-
-        if (current && current.material === mat && !current.summary) {
-          const hasSummaryData = n1 != null || n2 != null || n3 != null || n4 != null;
-          if (hasSummaryData) {
-            current.summary = {
-              planned: n1 ?? null,
-              assigned: n2 ?? n4 ?? n1 ?? null,
-              issued: n3 ?? null,
-              total: n4 ?? null,
-            };
-          }
-          if (!current.uom && uom) {
-            current.uom = uom;
-          }
-          continue;
-        }
-
-        current = {
-          material: mat,
-          description: desc,
-          planned: n1 ?? null,
-          assigned: n2 ?? n4 ?? n1 ?? null,
-          issued: n3 ?? null,
-          total: n4 ?? null,
-          uom: uom || null,
-          hu_list: [],
-          summary: null,
-        };
-        data.push(current);
-      }
-
-      if (!data.length) {
-        console.log('DEBUG lines:', lines.slice(0, 5).map((line) => line.raw));
+        data.push({
+          mat,
+          desc,
+          planned,
+          assigned,
+          issued,
+          total,
+          uom
+        });
       }
 
       return data;
@@ -783,167 +607,31 @@
       const tbody = document.querySelector('#view-operateur tbody');
       tbody.innerHTML = '';
 
-      if (!Array.isArray(data) || !data.length) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8; padding:24px;">Aucune donnée extraite du fichier YMLR.</td></tr>';
+      if (!data.length) {
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = '<td colspan="10" class="empty-row">Aucune donnée extraite pour le moment. Importez un fichier YMLR.</td>';
+        tbody.appendChild(emptyRow);
         return;
       }
 
-      const formatNumber = (value) => {
-        if (value == null || Number.isNaN(value)) return '—';
-        if (typeof value === 'number') {
-          return value.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
-        }
-        return escapeHtml(value);
-      };
+      const fmt = (value) => (value == null ? '—' : String(value));
 
-      for (const material of data) {
+      for (const row of data) {
         const tr = document.createElement('tr');
-        tr.classList.add('material-row');
         tr.innerHTML = `
-          <td>${escapeHtml(material.material)}</td>
-          <td>${escapeHtml(material.description || '—')}</td>
-          <td>${formatNumber(material.planned)}</td>
-          <td>${formatNumber(material.assigned ?? material.total ?? material.planned)}</td>
-          <td>${formatNumber(material.issued)}</td>
+          <td>${row.mat}</td>
+          <td>${row.desc}</td>
+          <td>${fmt(row.planned)}</td>
+          <td>${fmt(row.assigned ?? row.qty)}</td>
+          <td>${fmt(row.issued)}</td>
           <td><input type="text" inputmode="decimal" placeholder="0"></td>
           <td data-col="consommer">—</td>
           <td data-col="retourner">—</td>
-          <td>${escapeHtml(material.uom || '—')}</td>
+          <td>${row.uom || '—'}</td>
           <td>—</td>`;
         tbody.appendChild(tr);
-
-        if (Array.isArray(material.hu_list) && material.hu_list.length) {
-          const huTr = document.createElement('tr');
-          huTr.classList.add('hu-row');
-          const huTd = document.createElement('td');
-          huTd.colSpan = 10;
-
-          const items = material.hu_list
-            .map((hu) => {
-              const parts = [];
-              if (hu.batch) {
-                parts.push(`<span class="hu-meta"><strong>Batch :</strong> ${escapeHtml(hu.batch)}</span>`);
-              }
-              if (hu.qty != null) {
-                const qtyText = formatNumber(hu.qty);
-                const uomLabel = material.uom ? ` ${escapeHtml(material.uom)}` : '';
-                parts.push(`<span class="hu-meta"><strong>Qté :</strong> ${qtyText}${uomLabel}</span>`);
-              }
-              if (hu.status) {
-                parts.push(`<span class="hu-status">${escapeHtml(hu.status)}</span>`);
-              }
-              if (hu.packing) {
-                parts.push(`<span class="hu-meta"><strong>Conditionnement :</strong> ${escapeHtml(hu.packing)}</span>`);
-              }
-              return `<li class="hu-line"><span class="hu-code">HU ${escapeHtml(hu.hu)}</span>${parts.length ? ` ${parts.join(' ')}` : ''}</li>`;
-            })
-            .join('');
-
-          huTd.innerHTML = `<ul class="hu-list">${items}</ul>`;
-          huTr.appendChild(huTd);
-          tbody.appendChild(huTr);
-        }
-
-        if (material.summary && (material.summary.planned != null || material.summary.assigned != null || material.summary.issued != null || material.summary.total != null)) {
-          const summaryTr = document.createElement('tr');
-          summaryTr.classList.add('summary-row');
-          const summaryTd = document.createElement('td');
-          summaryTd.colSpan = 10;
-
-          const pills = [];
-          if (material.summary.planned != null) {
-            pills.push(`<span class="summary-pill">Planned : ${formatNumber(material.summary.planned)}</span>`);
-          }
-          if (material.summary.assigned != null) {
-            pills.push(`<span class="summary-pill">Assigned : ${formatNumber(material.summary.assigned)}</span>`);
-          }
-          if (material.summary.issued != null) {
-            pills.push(`<span class="summary-pill">Issued : ${formatNumber(material.summary.issued)}</span>`);
-          }
-          if (material.summary.total != null && material.summary.total !== material.summary.assigned) {
-            pills.push(`<span class="summary-pill">Total : ${formatNumber(material.summary.total)}</span>`);
-          }
-
-          summaryTd.innerHTML = `<div class="summary-line"><strong>Récapitulatif</strong>${pills.length ? ` ${pills.join(' ')}` : ''}</div>`;
-          summaryTr.appendChild(summaryTd);
-          tbody.appendChild(summaryTr);
-        }
       }
     }
-
-    function loadFile(file) {
-      if (!file) return;
-      const ok = /(\.htm|\.html)$/i.test(file.name) || file.type === 'text/html' || file.type === '';
-      if (!ok) {
-        setStatus('Format non reconnu. Sélectionnez un fichier .htm ou .html.');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onerror = () => setStatus('Erreur de lecture du fichier.');
-      reader.onload = () => {
-        const raw = String(reader.result);
-        const cleaned = raw.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
-        viewer.srcdoc = cleaned;
-        viewer.style.display = 'block';
-        placeholder.style.display = 'none';
-        const fileInfo = `${file.name} — ${formatSize(file.size)}`;
-        setStatus(fileInfo);
-        const extracted = extractYmlrData(cleaned);
-        renderOperatorTable(extracted);
-        if (!extracted.length) {
-          setStatus('⚠️ Aucune donnée valide trouvée dans le fichier YMLR.');
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    fileInput.addEventListener('change', (event) => {
-      const file = event.target.files ? event.target.files[0] : null;
-      loadFile(file);
-    });
-
-    importBtn.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        fileInput.click();
-      }
-    });
-
-    dropZone.addEventListener('click', () => {
-      fileInput.click();
-    });
-
-    dropZone.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        fileInput.click();
-      }
-    });
-
-    const preventDefaults = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    };
-
-    ['dragenter', 'dragover'].forEach((type) => {
-      dropZone.addEventListener(type, (event) => {
-        preventDefaults(event);
-        dropZone.classList.add('dragover');
-      });
-    });
-
-    ['dragleave', 'drop'].forEach((type) => {
-      dropZone.addEventListener(type, (event) => {
-        preventDefaults(event);
-        dropZone.classList.remove('dragover');
-      });
-    });
-
-    dropZone.addEventListener('drop', (event) => {
-      const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
-      loadFile(file);
-    });
 
     renderOperatorTable([]);
   </script>
