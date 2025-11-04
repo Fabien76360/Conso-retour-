@@ -198,6 +198,20 @@
       const isValidMaterialId = (s) => /^\d{6,18}$/.test(String(s).trim());
       const looksLikeHeaderNoise = (s) =>
         /^(ASPN|ASPEN|Printed|Report|Material|MATERIAL|Page|Total|Description)$/i.test(String(s).trim());
+      const sanitizeMaterialId = (value) => String(value ?? "").replace(/[^0-9]/g, "").trim();
+      const extractMaterialFromLine = (line) => {
+        if (!line) return null;
+        const match = line.match(/(\d{6,18})/);
+        if (!match) return null;
+        const rawId = match[0];
+        if (looksLikeHeaderNoise(rawId)) return null;
+        const prefix = line.slice(0, match.index).trim();
+        if (prefix && !/^[;,:|\-]*$/.test(prefix)) return null;
+        const id = sanitizeMaterialId(rawId);
+        if (!isValidMaterialId(id)) return null;
+        const rest = line.slice(match.index + rawId.length).trim();
+        return { id, rest };
+      };
 
       const fmt = (value) =>
         new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(
@@ -221,12 +235,27 @@
 
       const parseNumber = (value) => {
         if (value === undefined || value === null) return 0;
-        const normalized = String(value)
-          .trim()
-          .replace(/\s+/g, "")
-          .replace(/,/g, ".");
+        let normalized = String(value).trim();
+        if (!normalized) return 0;
+        normalized = normalized
+          .replace(/[\s\u00a0']/g, "")
+          .replace(/−/g, "-");
+        const hasComma = normalized.includes(",");
+        const hasDot = normalized.includes(".");
+        if (hasComma && hasDot) {
+          normalized = normalized.replace(/\./g, "").replace(/,/g, ".");
+        } else if (hasComma) {
+          normalized = normalized.replace(/,/g, ".");
+        } else if (hasDot) {
+          const parts = normalized.split(".");
+          if (parts.length > 2) {
+            normalized = parts.join("");
+          } else if (parts[parts.length - 1].length === 3 && parts.slice(0, -1).every((chunk) => chunk.length === 3 || chunk.length === 1)) {
+            normalized = parts.join("");
+          }
+        }
         const parsed = Number(normalized);
-        return Number.isFinite(parsed) ? parsed : 0;
+        return Number.isFinite(parsed) ? parsed : Number.NaN;
       };
 
       const splitCells = (line) => {
@@ -251,41 +280,90 @@
         if (value === undefined || value === null) return false;
         const normalized = String(value).trim();
         if (!normalized) return false;
-        const sanitized = normalized.replace(/\s+/g, "").replace(/,/g, ".");
-        return /^-?\d+(\.\d+)?$/.test(sanitized);
+        if (!/\d/.test(normalized)) return false;
+        return Number.isFinite(parseNumber(normalized));
       };
 
-      const normalizeCells = (cells) => {
-        if (!cells.length) return null;
-        const trimmedCells = cells.map((cell) => String(cell).trim()).filter((cell) => cell.length);
-        if (!trimmedCells.length) return null;
+      const normalizeLine = (line) => {
+        const extracted = extractMaterialFromLine(line);
+        if (!extracted) return null;
 
-        const id = trimmedCells[0];
-        if (!isValidMaterialId(id) || looksLikeHeaderNoise(id)) return null;
-
-        const rest = trimmedCells.slice(1);
-        if (!rest.length) return null;
+        const { id, rest } = extracted;
+        const rawCells = splitCells(rest).map((cell) => cell.replace(/^[;,:|\-]+/, "").trim());
+        const trimmedCells = rawCells.filter((cell) => cell.length);
 
         const numericValues = [];
-        let idx = rest.length - 1;
-        while (idx >= 0 && numericValues.length < 5 && isNumericToken(rest[idx])) {
-          numericValues.unshift(rest[idx]);
-          idx -= 1;
+        let idx = trimmedCells.length - 1;
+        while (idx >= 0 && numericValues.length < 5) {
+          const token = trimmedCells[idx];
+          if (isNumericToken(token)) {
+            numericValues.unshift(token);
+            idx -= 1;
+            continue;
+          }
+          if (/^[-–—]$/u.test(token)) {
+            idx -= 1;
+            continue;
+          }
+          break;
         }
 
-        if (numericValues.length < 4) return null;
+        if (!numericValues.length) return null;
 
-        const descriptionParts = rest.slice(0, idx + 1);
+        const descriptionParts = trimmedCells.slice(0, trimmedCells.length - numericValues.length);
         let desc = descriptionParts.join(" ") || "";
         desc = desc.replace(/\s{2,}/g, " ").trim();
-        if (!desc) return null;
+        if (!desc) desc = "—";
 
-        const plannedValue = parseNumber(numericValues[0]);
-        const assignedValue = parseNumber(numericValues[1]);
-        const issuedValue = parseNumber(numericValues[2]);
-        const totalValue = parseNumber(numericValues[3]);
-        const retourValue =
-          numericValues.length >= 5 ? parseNumber(numericValues[4]) : 0;
+        const assignValues = (values) =>
+          values.map((value) => {
+            const parsed = parseNumber(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+          });
+        let plannedValue = 0;
+        let assignedValue = 0;
+        let issuedValue = 0;
+        let totalValue = 0;
+        let retourValue = 0;
+
+        if (numericValues.length >= 5) {
+          const [planned, assigned, issued, total, retour] = assignValues(numericValues.slice(-5));
+          plannedValue = planned;
+          assignedValue = assigned;
+          issuedValue = issued;
+          totalValue = total;
+          retourValue = retour;
+        } else if (numericValues.length === 4) {
+          const [assigned, issued, total, retour] = assignValues(numericValues);
+          plannedValue = assigned;
+          assignedValue = assigned;
+          issuedValue = issued;
+          totalValue = total;
+          retourValue = retour;
+        } else if (numericValues.length === 3) {
+          const [assigned, issued, total] = assignValues(numericValues);
+          plannedValue = assigned;
+          assignedValue = assigned;
+          issuedValue = issued;
+          totalValue = total;
+          retourValue = 0;
+        } else if (numericValues.length === 2) {
+          const [assigned, total] = assignValues(numericValues);
+          plannedValue = assigned || total;
+          assignedValue = assigned;
+          issuedValue = 0;
+          totalValue = total;
+          retourValue = 0;
+        } else {
+          const [assigned] = assignValues(numericValues);
+          plannedValue = assigned;
+          assignedValue = assigned;
+          issuedValue = 0;
+          totalValue = assigned;
+          retourValue = 0;
+        }
+
+        if (!Number.isFinite(assignedValue) || !Number.isFinite(totalValue)) return null;
 
         return {
           id,
@@ -315,20 +393,26 @@
         }
 
         const rows = [];
+        let skipped = 0;
         for (let i = startIndex; i < lines.length; i += 1) {
           const line = lines[i];
           if (line.length < 5) continue;
           if (/^(ASPN|ASPEN|Printed|Report|Material|MATERIAL|Page)/i.test(line)) continue;
 
-          const cells = splitCells(line);
-          const row = normalizeCells(cells);
+          const row = normalizeLine(line);
           if (row) {
             rows.push(row);
+          } else {
+            skipped += 1;
           }
         }
 
         if (!rows.length) {
-          throw new Error("Impossible de détecter des lignes valides dans le fichier.");
+          throw new Error(
+            `Impossible de détecter des lignes valides dans le fichier (${skipped} ligne${skipped > 1 ? "s" : ""} ignorée${
+              skipped > 1 ? "s" : ""
+            }).`
+          );
         }
 
         return rows;
