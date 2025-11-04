@@ -195,21 +195,19 @@
         },
       ];
 
+      const isLikelyHTML = (t) => /<[^>]+>/.test(String(t));
       const isValidMaterialId = (s) => /^\d{6,18}$/.test(String(s).trim());
       const looksLikeHeaderNoise = (s) =>
         /^(ASPN|ASPEN|Printed|Report|Material|MATERIAL|Page|Total|Description)$/i.test(String(s).trim());
       const sanitizeMaterialId = (value) => String(value ?? "").replace(/[^0-9]/g, "").trim();
       const extractMaterialFromLine = (line) => {
         if (!line) return null;
-        const match = line.match(/(\d{6,18})/);
-        if (!match) return null;
-        const rawId = match[0];
-        if (looksLikeHeaderNoise(rawId)) return null;
-        const prefix = line.slice(0, match.index).trim();
-        if (prefix && !/^[;,:|\-]*$/.test(prefix)) return null;
+        const m = line.match(/(\d{6,18})/);
+        if (!m) return null;
+        const rawId = m[1];
         const id = sanitizeMaterialId(rawId);
         if (!isValidMaterialId(id)) return null;
-        const rest = line.slice(match.index + rawId.length).trim();
+        const rest = line.slice(m.index + rawId.length).trim();
         return { id, rest };
       };
 
@@ -291,6 +289,18 @@
         const { id, rest } = extracted;
         const rawCells = splitCells(rest).map((cell) => cell.replace(/^[;,:|\-]+/, "").trim());
         const trimmedCells = rawCells.filter((cell) => cell.length);
+
+        if (trimmedCells.length < 3) {
+          const fallback = rest.replace(/\s{2,}/g, " ").trim();
+          if (fallback && fallback !== rest) {
+            const cells2 = splitCells(fallback)
+              .map((cell) => cell.replace(/^[;,:|\-]+/, "").trim())
+              .filter(Boolean);
+            if (cells2.length >= 3) {
+              trimmedCells.splice(0, trimmedCells.length, ...cells2);
+            }
+          }
+        }
 
         const numericValues = [];
         let idx = trimmedCells.length - 1;
@@ -376,45 +386,52 @@
         };
       };
 
-      const parseTxtContent = (text) => {
-        const lines = text
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter((line) => line.length);
+      const preprocessLines = (text) => {
+        const raw = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 
-        if (!lines.length) {
-          throw new Error("Le fichier est vide.");
+        const merged = [];
+        let acc = "";
+        for (const line of raw) {
+          const candidate = acc ? `${acc} ${line}` : line;
+          if (/\d{6,}/.test(candidate)) {
+            merged.push(candidate);
+            acc = "";
+          } else if (candidate.length < 80) {
+            acc = candidate;
+          } else {
+            merged.push(candidate);
+            acc = "";
+          }
         }
+        if (acc) merged.push(acc);
+        return merged;
+      };
+
+      const parseTxtContent = (text) => {
+        const lines = preprocessLines(text);
 
         let startIndex = 0;
-        const firstLine = lines[0].toLowerCase();
-        if (firstLine.includes("material") && firstLine.includes("description")) {
-          startIndex = 1;
-        }
+        const first = (lines[0] || "").toLowerCase();
+        if (first.includes("material") && first.includes("description")) startIndex = 1;
 
         const rows = [];
         let skipped = 0;
-        for (let i = startIndex; i < lines.length; i += 1) {
+        for (let i = startIndex; i < lines.length; i++) {
           const line = lines[i];
           if (line.length < 5) continue;
-          if (/^(ASPN|ASPEN|Printed|Report|Material|MATERIAL|Page)/i.test(line)) continue;
+          if (/^(ASPN|ASPEN|Printed|Report|Page)/i.test(line)) {
+            skipped++;
+            continue;
+          }
 
           const row = normalizeLine(line);
-          if (row) {
-            rows.push(row);
-          } else {
-            skipped += 1;
-          }
+          if (row) rows.push(row);
+          else skipped++;
         }
 
         if (!rows.length) {
-          throw new Error(
-            `Impossible de détecter des lignes valides dans le fichier (${skipped} ligne${skipped > 1 ? "s" : ""} ignorée${
-              skipped > 1 ? "s" : ""
-            }).`
-          );
+          throw new Error(`Impossible de détecter des lignes valides dans le fichier (${skipped} lignes ignorées).`);
         }
-
         return rows;
       };
 
@@ -645,12 +662,17 @@
         const reader = new FileReader();
         reader.onload = () => {
           try {
-            const rows = parseTxtContent(reader.result);
+            const content = String(reader.result || "");
+            if (isLikelyHTML(content)) {
+              throw new Error("Fichier HTML détecté. Exporte en TXT (largeur fixe), pas en HTML.");
+            }
+            const rows = parseTxtContent(content);
             state.rows = cloneRows(rows);
             render();
-            setStatus(`Fichier « ${file.name} » importé (${rows.length} ligne${
-              rows.length > 1 ? "s" : ""
-            }).`, "success");
+            setStatus(
+              `Fichier « ${file.name} » importé (${rows.length} ligne${rows.length > 1 ? "s" : ""}).`,
+              "success"
+            );
           } catch (error) {
             console.error(error);
             setStatus(`Échec de l'import : ${error.message}`, "error");
