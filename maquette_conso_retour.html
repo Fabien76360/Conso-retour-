@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-gray-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conso / Retour – Fin de PO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .table-scroll::-webkit-scrollbar {
+        height: 8px;
+      }
+      .table-scroll::-webkit-scrollbar-thumb {
+        background-color: rgba(107, 114, 128, 0.4);
+        border-radius: 9999px;
+      }
+    </style>
+  </head>
+  <body class="h-full">
+    <div class="min-h-screen p-6">
+      <header class="mb-6 rounded-2xl bg-white p-6 shadow">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 class="text-2xl font-semibold text-gray-900">
+              Conso / Retour – Fin de PO
+            </h1>
+            <p class="mt-1 text-sm text-gray-500">
+              Maquette interactive pour le suivi terrain
+            </p>
+          </div>
+          <div class="grid grid-cols-3 gap-4 text-sm text-gray-600">
+            <div>
+              <p class="font-semibold text-gray-800">PO</p>
+              <p>1048956</p>
+            </div>
+            <div>
+              <p class="font-semibold text-gray-800">Produit</p>
+              <p>FRAXIPARINE 0.6 ML</p>
+            </div>
+            <div>
+              <p class="font-semibold text-gray-800">Batch</p>
+              <p>8564</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <section class="flex flex-col gap-6">
+          <div class="rounded-2xl bg-white p-6 shadow">
+            <h2 class="text-lg font-semibold text-gray-900">Import fichier TXT</h2>
+            <div
+              class="mt-4 flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 p-8 text-center"
+            >
+              <p class="text-sm text-indigo-700">
+                Glissez-déposez votre fichier TXT ou utilisez le sélecteur ci-dessous.
+              </p>
+              <label
+                for="file-input"
+                class="inline-flex cursor-pointer items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500"
+              >
+                Choisir un fichier
+              </label>
+              <input id="file-input" type="file" accept=".txt" class="hidden" />
+              <p class="text-xs text-indigo-500">(Interface uniquement – import non implémenté)</p>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-white p-6 shadow">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <h2 class="text-lg font-semibold text-gray-900">Vue opérateur</h2>
+              <div class="flex gap-2">
+                <button
+                  id="exportCsv"
+                  class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-indigo-300 hover:text-indigo-600"
+                >
+                  Export CSV
+                </button>
+                <button
+                  id="exportJson"
+                  class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-indigo-300 hover:text-indigo-600"
+                >
+                  Export JSON
+                </button>
+                <button
+                  id="validatePo"
+                  class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500"
+                >
+                  Valider le PO
+                </button>
+              </div>
+            </div>
+
+            <div class="table-scroll mt-6 overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th class="px-3 py-3">Material</th>
+                    <th class="px-3 py-3">Description</th>
+                    <th class="px-3 py-3">UoM</th>
+                    <th class="px-3 py-3 text-right">Assigned</th>
+                    <th class="px-3 py-3 text-right">Issued</th>
+                    <th class="px-3 py-3 text-right">Total</th>
+                    <th class="px-3 py-3 text-right">Retour saisi</th>
+                    <th class="px-3 py-3 text-right">Consommé (auto)</th>
+                    <th class="px-3 py-3 text-right">Δ vs Assigned</th>
+                    <th class="px-3 py-3 text-right">Raccourcis</th>
+                  </tr>
+                </thead>
+                <tbody id="materialsBody" class="divide-y divide-gray-100 bg-white"></tbody>
+                <tfoot class="bg-gray-50">
+                  <tr class="text-sm font-semibold text-gray-700">
+                    <td class="px-3 py-3" colspan="3">Totaux</td>
+                    <td class="px-3 py-3 text-right" id="totalAssigned">0</td>
+                    <td class="px-3 py-3 text-right" id="totalIssued">0</td>
+                    <td class="px-3 py-3 text-right" id="totalOverall">0</td>
+                    <td class="px-3 py-3 text-right" id="totalRetour">0</td>
+                    <td class="px-3 py-3 text-right" id="totalConsomme">0</td>
+                    <td class="px-3 py-3 text-right" colspan="2"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <aside class="flex flex-col gap-6">
+          <div class="grid gap-4">
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p class="text-sm font-medium text-gray-500">Planifié</p>
+              <p id="tilePlanifie" class="mt-2 text-2xl font-semibold text-gray-900">0</p>
+            </div>
+            <div class="rounded-2xl border border-indigo-200 bg-indigo-50 p-5 shadow-sm">
+              <p class="text-sm font-medium text-indigo-600">Produit</p>
+              <p id="tileProduit" class="mt-2 text-2xl font-semibold text-indigo-900">0</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p class="text-sm font-medium text-gray-500">Consommé</p>
+              <p id="tileConsomme" class="mt-2 text-2xl font-semibold text-gray-900">0</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p class="text-sm font-medium text-gray-500">Retour</p>
+              <p id="tileRetour" class="mt-2 text-2xl font-semibold text-gray-900">0</p>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-white p-6 shadow">
+            <h2 class="text-lg font-semibold text-gray-900">Règles d'affichage</h2>
+            <ul class="mt-4 list-disc space-y-2 pl-5 text-sm text-gray-600">
+              <li>Le champ "Retour saisi" est modifiable par l'opérateur.</li>
+              <li>Consommé = Assigned − Retour (valeur minimum à 0).</li>
+              <li>
+                Δ vs Assigned affiche la déviation en % (en vert si |Δ| ≤ 2 %, sinon en rouge).
+              </li>
+              <li>Boutons raccourcis : 0, moitié ou valeur assignée.</li>
+              <li>Totaux mis à jour dynamiquement avec formatage fr-FR.</li>
+            </ul>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script>
+      const data = [
+        {
+          id: "000123451",
+          desc: "CARTON SECONDARY 1",
+          uom: "EA",
+          planned: 16530,
+          assigned: 2160,
+          issued: 100,
+          total: 2060,
+          retour: 100,
+        },
+        {
+          id: "000123452",
+          desc: "ETIQUETTES PRIMAIRES",
+          uom: "EA",
+          planned: 10000,
+          assigned: 9800,
+          issued: 0,
+          total: 9800,
+          retour: 0,
+        },
+        {
+          id: "000123453",
+          desc: "BOUTEILLES VERRE 0.6",
+          uom: "EA",
+          planned: 16530,
+          assigned: 16200,
+          issued: 0,
+          total: 16200,
+          retour: 0,
+        },
+      ];
+
+      const fmt = (value) =>
+        new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value);
+
+      const clampNonNeg = (value) => (Number.isNaN(value) ? 0 : Math.max(0, value));
+
+      const percentDeviation = (value, reference) => {
+        if (!reference) return 0;
+        return ((value - reference) / reference) * 100;
+      };
+
+      const tableBody = document.getElementById("materialsBody");
+      const totalsElements = {
+        assigned: document.getElementById("totalAssigned"),
+        issued: document.getElementById("totalIssued"),
+        total: document.getElementById("totalOverall"),
+        retour: document.getElementById("totalRetour"),
+        consomme: document.getElementById("totalConsomme"),
+      };
+
+      const tiles = {
+        planifie: document.getElementById("tilePlanifie"),
+        produit: document.getElementById("tileProduit"),
+        consomme: document.getElementById("tileConsomme"),
+        retour: document.getElementById("tileRetour"),
+      };
+
+      const state = {
+        rows: JSON.parse(JSON.stringify(data)),
+      };
+
+      const render = () => {
+        tableBody.innerHTML = "";
+        let totals = {
+          planned: 0,
+          assigned: 0,
+          issued: 0,
+          total: 0,
+          retour: 0,
+          consomme: 0,
+        };
+
+        state.rows.forEach((row) => {
+          const retour = clampNonNeg(Number(row.retour));
+          const consomme = clampNonNeg(row.assigned - retour);
+          const delta = percentDeviation(consomme, row.assigned);
+
+          totals = {
+            planned: totals.planned + row.planned,
+            assigned: totals.assigned + row.assigned,
+            issued: totals.issued + row.issued,
+            total: totals.total + row.total,
+            retour: totals.retour + retour,
+            consomme: totals.consomme + consomme,
+          };
+
+          const tr = document.createElement("tr");
+          tr.className = "align-top";
+          tr.innerHTML = `
+            <td class="whitespace-nowrap px-3 py-3 font-mono text-xs text-gray-700">${row.id}</td>
+            <td class="px-3 py-3 text-gray-800">${row.desc}</td>
+            <td class="px-3 py-3 text-gray-500">${row.uom}</td>
+            <td class="px-3 py-3 text-right font-medium text-gray-900">${fmt(row.assigned)}</td>
+            <td class="px-3 py-3 text-right text-gray-600">${fmt(row.issued)}</td>
+            <td class="px-3 py-3 text-right text-gray-600">${fmt(row.total)}</td>
+            <td class="px-3 py-3">
+              <input
+                type="number"
+                min="0"
+                value="${retour}"
+                data-id="${row.id}"
+                class="w-24 rounded-lg border border-gray-200 px-2 py-1 text-right text-sm text-gray-800 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+              />
+            </td>
+            <td class="px-3 py-3 text-right font-semibold text-gray-900">${fmt(consomme)}</td>
+            <td class="px-3 py-3 text-right">
+              <span class="inline-flex min-w-[4rem] justify-end rounded-full px-2 py-1 text-xs font-semibold ${
+                Math.abs(delta) <= 2
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-red-50 text-red-700"
+              }">${delta.toFixed(1)}%</span>
+            </td>
+            <td class="px-3 py-3 text-right">
+              <div class="flex justify-end gap-2">
+                <button data-action="zero" data-id="${row.id}" class="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition hover:border-indigo-300 hover:text-indigo-600">0</button>
+                <button data-action="half" data-id="${row.id}" class="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition hover:border-indigo-300 hover:text-indigo-600">½</button>
+                <button data-action="assigned" data-id="${row.id}" class="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition hover:border-indigo-300 hover:text-indigo-600">=Assigned</button>
+              </div>
+            </td>
+          `;
+
+          tableBody.appendChild(tr);
+        });
+
+        totalsElements.assigned.textContent = fmt(totals.assigned);
+        totalsElements.issued.textContent = fmt(totals.issued);
+        totalsElements.total.textContent = fmt(totals.total);
+        totalsElements.retour.textContent = fmt(totals.retour);
+        totalsElements.consomme.textContent = fmt(totals.consomme);
+
+        tiles.planifie.textContent = fmt(totals.planned);
+        tiles.produit.textContent = fmt(totals.total);
+        tiles.consomme.textContent = fmt(totals.consomme);
+        tiles.retour.textContent = fmt(totals.retour);
+      };
+
+      const updateRetour = (id, value) => {
+        const row = state.rows.find((item) => item.id === id);
+        if (!row) return;
+        row.retour = clampNonNeg(Number(value));
+        render();
+      };
+
+      tableBody.addEventListener("input", (event) => {
+        const { target } = event;
+        if (target.matches("input[type='number']")) {
+          updateRetour(target.dataset.id, target.value);
+        }
+      });
+
+      tableBody.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-action]");
+        if (!button) return;
+        const id = button.dataset.id;
+        const action = button.dataset.action;
+        const row = state.rows.find((item) => item.id === id);
+        if (!row) return;
+
+        if (action === "zero") {
+          row.retour = 0;
+        } else if (action === "half") {
+          row.retour = Math.round(row.assigned / 2);
+        } else if (action === "assigned") {
+          row.retour = row.assigned;
+        }
+        render();
+      });
+
+      const downloadBlob = (content, filename, type) => {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      };
+
+      const collectRows = () => {
+        return state.rows.map((row) => {
+          const retour = clampNonNeg(Number(row.retour));
+          const consomme = clampNonNeg(row.assigned - retour);
+          const delta = percentDeviation(consomme, row.assigned);
+          return { ...row, retour, consomme, delta: Number(delta.toFixed(1)) };
+        });
+      };
+
+      document.getElementById("exportJson").addEventListener("click", () => {
+        const payload = collectRows().map(({ delta, ...rest }) => ({ ...rest, consomme: rest.consomme }));
+        downloadBlob(JSON.stringify(payload, null, 2), "conso-retour.json", "application/json");
+      });
+
+      document.getElementById("exportCsv").addEventListener("click", () => {
+        const headers = [
+          "Material",
+          "Description",
+          "UoM",
+          "Assigned",
+          "Issued",
+          "Total",
+          "Retour",
+          "Consomme",
+          "DeltaPercent",
+        ];
+        const rows = collectRows()
+          .map((row) =>
+            [
+              row.id,
+              row.desc.replace(/"/g, '""'),
+              row.uom,
+              row.assigned,
+              row.issued,
+              row.total,
+              row.retour,
+              row.consomme,
+              row.delta,
+            ]
+              .map((value) => `"${value}"`)
+              .join(",")
+          )
+          .join("\n");
+        const csv = `${headers.join(",")}\n${rows}`;
+        downloadBlob(csv, "conso-retour.csv", "text/csv");
+      });
+
+      document.getElementById("validatePo").addEventListener("click", () => {
+        const summary = collectRows().map(
+          (row) => `${row.id} – Retour: ${fmt(row.retour)} | Consommé: ${fmt(row.consomme)}`
+        );
+        alert(`Validation du PO\n\n${summary.join("\n")}`);
+      });
+
+      render();
+    </script>
+  </body>
+</html>
