@@ -104,26 +104,24 @@
                   <tr>
                     <th class="px-3 py-3">Material</th>
                     <th class="px-3 py-3">Description</th>
-                    <th class="px-3 py-3">UoM</th>
                     <th class="px-3 py-3 text-right">Assigned</th>
                     <th class="px-3 py-3 text-right">Issued</th>
                     <th class="px-3 py-3 text-right">Total</th>
                     <th class="px-3 py-3 text-right">Retour saisi</th>
                     <th class="px-3 py-3 text-right">Consommé (auto)</th>
                     <th class="px-3 py-3 text-right">Δ vs Assigned</th>
-                    <th class="px-3 py-3 text-right">Raccourcis</th>
                   </tr>
                 </thead>
                 <tbody id="materialsBody" class="divide-y divide-gray-100 bg-white"></tbody>
                 <tfoot class="bg-gray-50">
                   <tr class="text-sm font-semibold text-gray-700">
-                    <td class="px-3 py-3" colspan="3">Totaux</td>
+                    <td class="px-3 py-3" colspan="2">Totaux</td>
                     <td class="px-3 py-3 text-right" id="totalAssigned">0</td>
                     <td class="px-3 py-3 text-right" id="totalIssued">0</td>
                     <td class="px-3 py-3 text-right" id="totalOverall">0</td>
                     <td class="px-3 py-3 text-right" id="totalRetour">0</td>
                     <td class="px-3 py-3 text-right" id="totalConsomme">0</td>
-                    <td class="px-3 py-3 text-right" colspan="2"></td>
+                    <td class="px-3 py-3 text-right" colspan="1"></td>
                   </tr>
                 </tfoot>
               </table>
@@ -159,7 +157,6 @@
               <li>
                 Δ vs Assigned affiche la déviation en % (en vert si |Δ| ≤ 2 %, sinon en rouge).
               </li>
-              <li>Boutons raccourcis : 0, moitié ou valeur assignée.</li>
               <li>Totaux mis à jour dynamiquement avec formatage fr-FR.</li>
             </ul>
           </div>
@@ -172,7 +169,6 @@
         {
           id: "000123451",
           desc: "CARTON SECONDARY 1",
-          uom: "EA",
           planned: 16530,
           assigned: 2160,
           issued: 100,
@@ -182,7 +178,6 @@
         {
           id: "000123452",
           desc: "ETIQUETTES PRIMAIRES",
-          uom: "EA",
           planned: 10000,
           assigned: 9800,
           issued: 0,
@@ -192,7 +187,6 @@
         {
           id: "000123453",
           desc: "BOUTEILLES VERRE 0.6",
-          uom: "EA",
           planned: 16530,
           assigned: 16200,
           issued: 0,
@@ -200,6 +194,10 @@
           retour: 0,
         },
       ];
+
+      const isValidMaterialId = (s) => /^\d{6,18}$/.test(String(s).trim());
+      const looksLikeHeaderNoise = (s) =>
+        /^(ASPN|ASPEN|Printed|Report|Material|MATERIAL|Page|Total|Description)$/i.test(String(s).trim());
 
       const fmt = (value) =>
         new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(
@@ -242,38 +240,61 @@
         }
         if (normalized.includes(",")) {
           const commaCells = normalized.split(",").map((cell) => cell.trim());
-          if (commaCells.length >= 7) return commaCells;
+          if (commaCells.length >= 6) return commaCells;
         }
         const doubleSpaceCells = normalized.split(/\s{2,}/).map((cell) => cell.trim());
-        if (doubleSpaceCells.length >= 7) return doubleSpaceCells;
+        if (doubleSpaceCells.length >= 6) return doubleSpaceCells;
         return normalized.split(/\s+/).map((cell) => cell.trim());
       };
 
+      const isNumericToken = (value) => {
+        if (value === undefined || value === null) return false;
+        const normalized = String(value).trim();
+        if (!normalized) return false;
+        const sanitized = normalized.replace(/\s+/g, "").replace(/,/g, ".");
+        return /^-?\d+(\.\d+)?$/.test(sanitized);
+      };
+
       const normalizeCells = (cells) => {
-        if (cells.length < 6) return null;
-        const numericCount = cells.length >= 8 ? 5 : 4;
-        const numericValues = cells.slice(-numericCount).map((cell) => cell.trim());
-        const leading = cells.slice(0, cells.length - numericCount).map((cell) => cell.trim());
-        if (!leading.length) return null;
-        const id = leading[0];
-        const uom = leading.length >= 3 ? leading[leading.length - 1] : leading[2] || "";
-        const descriptionParts = leading.slice(1, leading.length - (leading.length >= 3 ? 1 : 0));
-        const desc = descriptionParts.length ? descriptionParts.join(" ") : leading[1] || "";
+        if (!cells.length) return null;
+        const trimmedCells = cells.map((cell) => String(cell).trim()).filter((cell) => cell.length);
+        if (!trimmedCells.length) return null;
 
-        const [planned = "0", assigned = "0", issued = "0", total = "0", retourValue = "0"] =
-          numericCount === 5 ? numericValues : [...numericValues, "0"];
+        const id = trimmedCells[0];
+        if (!isValidMaterialId(id) || looksLikeHeaderNoise(id)) return null;
 
-        if (!id || !desc) return null;
+        const rest = trimmedCells.slice(1);
+        if (!rest.length) return null;
+
+        const numericValues = [];
+        let idx = rest.length - 1;
+        while (idx >= 0 && numericValues.length < 5 && isNumericToken(rest[idx])) {
+          numericValues.unshift(rest[idx]);
+          idx -= 1;
+        }
+
+        if (numericValues.length < 4) return null;
+
+        const descriptionParts = rest.slice(0, idx + 1);
+        let desc = descriptionParts.join(" ") || "";
+        desc = desc.replace(/\s{2,}/g, " ").trim();
+        if (!desc) return null;
+
+        const plannedValue = parseNumber(numericValues[0]);
+        const assignedValue = parseNumber(numericValues[1]);
+        const issuedValue = parseNumber(numericValues[2]);
+        const totalValue = parseNumber(numericValues[3]);
+        const retourValue =
+          numericValues.length >= 5 ? parseNumber(numericValues[4]) : 0;
 
         return {
           id,
           desc,
-          uom: uom || "EA",
-          planned: parseNumber(planned),
-          assigned: parseNumber(assigned),
-          issued: parseNumber(issued),
-          total: parseNumber(total),
-          retour: clampNonNeg(parseNumber(retourValue)),
+          planned: plannedValue,
+          assigned: assignedValue,
+          issued: issuedValue,
+          total: totalValue,
+          retour: Math.min(clampNonNeg(retourValue), assignedValue),
         };
       };
 
@@ -295,7 +316,11 @@
 
         const rows = [];
         for (let i = startIndex; i < lines.length; i += 1) {
-          const cells = splitCells(lines[i]);
+          const line = lines[i];
+          if (line.length < 5) continue;
+          if (/^(ASPN|ASPEN|Printed|Report|Material|MATERIAL|Page)/i.test(line)) continue;
+
+          const cells = splitCells(line);
           const row = normalizeCells(cells);
           if (row) {
             rows.push(row);
@@ -359,13 +384,20 @@
         };
 
         state.rows.forEach((row) => {
+          const id = String(row.id ?? "").trim();
+          row.id = id;
           const planned = Number(row.planned) || 0;
           const assigned = Number(row.assigned) || 0;
           const issued = Number(row.issued) || 0;
           const total = Number(row.total) || 0;
-          const retour = clampNonNeg(Number(row.retour));
+          const retour = Math.min(clampNonNeg(Number(row.retour)), assigned);
+          row.retour = retour;
           const consomme = clampNonNeg(assigned - retour);
           const delta = percentDeviation(consomme, assigned);
+          const badMaterial = !isValidMaterialId(id);
+          const issuedGtAssigned = issued > assigned;
+          const description = String(row.desc ?? "").replace(/\s{2,}/g, " ").trim();
+          row.desc = description;
 
           totals = {
             planned: totals.planned + planned,
@@ -378,10 +410,12 @@
 
           const tr = document.createElement("tr");
           tr.className = "align-top";
+          if (badMaterial) {
+            tr.classList.add("bg-red-50");
+          }
           tr.innerHTML = `
-            <td class="whitespace-nowrap px-3 py-3 font-mono text-xs text-gray-700">${row.id}</td>
-            <td class="px-3 py-3 text-gray-800">${row.desc}</td>
-            <td class="px-3 py-3 text-gray-500">${row.uom}</td>
+            <td class="whitespace-nowrap px-3 py-3 font-mono text-xs text-gray-700">${id}</td>
+            <td class="px-3 py-3 text-gray-800">${description}</td>
             <td class="px-3 py-3 text-right font-medium text-gray-900">${fmt(assigned)}</td>
             <td class="px-3 py-3 text-right text-gray-600">${fmt(issued)}</td>
             <td class="px-3 py-3 text-right text-gray-600">${fmt(total)}</td>
@@ -390,7 +424,7 @@
                 type="number"
                 min="0"
                 value="${retour}"
-                data-id="${row.id}"
+                data-id="${id}"
                 class="w-24 rounded-lg border border-gray-200 px-2 py-1 text-right text-sm text-gray-800 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-300"
               />
             </td>
@@ -400,14 +434,11 @@
                 Math.abs(delta) <= 2
                   ? "bg-emerald-50 text-emerald-700"
                   : "bg-red-50 text-red-700"
-              }">${fmtPercent(delta)}%</span>
-            </td>
-            <td class="px-3 py-3 text-right">
-              <div class="flex justify-end gap-2">
-                <button data-action="zero" data-id="${row.id}" class="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition hover:border-indigo-300 hover:text-indigo-600">0</button>
-                <button data-action="half" data-id="${row.id}" class="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition hover:border-indigo-300 hover:text-indigo-600">½</button>
-                <button data-action="assigned" data-id="${row.id}" class="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition hover:border-indigo-300 hover:text-indigo-600">=Assigned</button>
-              </div>
+              }">${fmtPercent(delta)}%</span>${
+                issuedGtAssigned
+                  ? '<span class="ml-2 inline-block rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-700">issued&gt;assigned</span>'
+                  : ""
+              }
             </td>
           `;
 
@@ -429,7 +460,7 @@
       const updateRetour = (id, value) => {
         const row = state.rows.find((item) => item.id === id);
         if (!row) return;
-        row.retour = clampNonNeg(Number(value));
+        row.retour = Math.min(clampNonNeg(Number(value)), Number(row.assigned) || 0);
         render();
       };
 
@@ -438,24 +469,6 @@
         if (target.matches("input[type='number']")) {
           updateRetour(target.dataset.id, target.value);
         }
-      });
-
-      tableBody.addEventListener("click", (event) => {
-        const button = event.target.closest("button[data-action]");
-        if (!button) return;
-        const id = button.dataset.id;
-        const action = button.dataset.action;
-        const row = state.rows.find((item) => item.id === id);
-        if (!row) return;
-
-        if (action === "zero") {
-          row.retour = 0;
-        } else if (action === "half") {
-          row.retour = Math.round(row.assigned / 2);
-        } else if (action === "assigned") {
-          row.retour = row.assigned;
-        }
-        render();
       });
 
       const downloadBlob = (content, filename, type) => {
@@ -476,12 +489,13 @@
           const assigned = Number(row.assigned) || 0;
           const issued = Number(row.issued) || 0;
           const total = Number(row.total) || 0;
-          const retour = clampNonNeg(Number(row.retour));
+          const retour = Math.min(clampNonNeg(Number(row.retour)), assigned);
           const consomme = clampNonNeg(assigned - retour);
           const delta = percentDeviation(consomme, assigned);
 
           return {
-            ...row,
+            id: String(row.id ?? "").trim(),
+            desc: String(row.desc ?? "").replace(/\s{2,}/g, " ").trim(),
             planned,
             assigned,
             issued,
@@ -501,7 +515,6 @@
         const headers = [
           "Material",
           "Description",
-          "UoM",
           "Assigned",
           "Issued",
           "Total",
@@ -514,7 +527,6 @@
             [
               row.id,
               row.desc.replace(/"/g, '""'),
-              row.uom,
               row.assigned,
               row.issued,
               row.total,
