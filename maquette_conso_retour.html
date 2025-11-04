@@ -49,7 +49,8 @@
           <div class="rounded-2xl bg-white p-6 shadow">
             <h2 class="text-lg font-semibold text-gray-900">Import fichier TXT</h2>
             <div
-              class="mt-4 flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 p-8 text-center"
+              id="dropZone"
+              class="mt-4 flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 p-8 text-center transition"
             >
               <p class="text-sm text-indigo-700">
                 Glissez-déposez votre fichier TXT ou utilisez le sélecteur ci-dessous.
@@ -61,14 +62,14 @@
                 Choisir un fichier
               </label>
               <input id="file-input" type="file" accept=".txt" class="hidden" />
-              <p class="text-xs text-indigo-500">(Interface uniquement – import non implémenté)</p>
+              <p id="fileStatus" class="text-xs text-gray-500">Aucun fichier importé pour le moment.</p>
             </div>
           </div>
 
           <div class="rounded-2xl bg-white p-6 shadow">
             <div class="flex flex-wrap items-center justify-between gap-4">
               <h2 class="text-lg font-semibold text-gray-900">Vue opérateur</h2>
-              <div class="flex gap-2">
+              <div class="flex flex-wrap gap-2">
                 <button
                   id="exportCsv"
                   class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-indigo-300 hover:text-indigo-600"
@@ -82,9 +83,16 @@
                   Export JSON
                 </button>
                 <button
+                  id="resetData"
+                  class="rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
+                  type="button"
+                >
+                  Remettre à zéro
+                </button>
+                <button
                   id="validatePo"
                   class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500"
-                >
+                  >
                   Valider le PO
                 </button>
               </div>
@@ -160,7 +168,7 @@
     </div>
 
     <script>
-      const data = [
+      const baseData = [
         {
           id: "000123451",
           desc: "CARTON SECONDARY 1",
@@ -194,13 +202,111 @@
       ];
 
       const fmt = (value) =>
-        new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value);
+        new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(
+          Number(value) || 0
+        );
+
+      const fmtPercent = (value) =>
+        Number.isFinite(value)
+          ? new Intl.NumberFormat("fr-FR", {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            }).format(value)
+          : "0,0";
 
       const clampNonNeg = (value) => (Number.isNaN(value) ? 0 : Math.max(0, value));
 
       const percentDeviation = (value, reference) => {
         if (!reference) return 0;
         return ((value - reference) / reference) * 100;
+      };
+
+      const parseNumber = (value) => {
+        if (value === undefined || value === null) return 0;
+        const normalized = String(value)
+          .trim()
+          .replace(/\s+/g, "")
+          .replace(/,/g, ".");
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+
+      const splitCells = (line) => {
+        const normalized = line.trim();
+        if (!normalized) return [];
+        const explicitSeparators = [";", "\t", "|"];
+        for (const separator of explicitSeparators) {
+          if (normalized.includes(separator)) {
+            return normalized.split(separator).map((cell) => cell.trim());
+          }
+        }
+        if (normalized.includes(",")) {
+          const commaCells = normalized.split(",").map((cell) => cell.trim());
+          if (commaCells.length >= 7) return commaCells;
+        }
+        const doubleSpaceCells = normalized.split(/\s{2,}/).map((cell) => cell.trim());
+        if (doubleSpaceCells.length >= 7) return doubleSpaceCells;
+        return normalized.split(/\s+/).map((cell) => cell.trim());
+      };
+
+      const normalizeCells = (cells) => {
+        if (cells.length < 6) return null;
+        const numericCount = cells.length >= 8 ? 5 : 4;
+        const numericValues = cells.slice(-numericCount).map((cell) => cell.trim());
+        const leading = cells.slice(0, cells.length - numericCount).map((cell) => cell.trim());
+        if (!leading.length) return null;
+        const id = leading[0];
+        const uom = leading.length >= 3 ? leading[leading.length - 1] : leading[2] || "";
+        const descriptionParts = leading.slice(1, leading.length - (leading.length >= 3 ? 1 : 0));
+        const desc = descriptionParts.length ? descriptionParts.join(" ") : leading[1] || "";
+
+        const [planned = "0", assigned = "0", issued = "0", total = "0", retourValue = "0"] =
+          numericCount === 5 ? numericValues : [...numericValues, "0"];
+
+        if (!id || !desc) return null;
+
+        return {
+          id,
+          desc,
+          uom: uom || "EA",
+          planned: parseNumber(planned),
+          assigned: parseNumber(assigned),
+          issued: parseNumber(issued),
+          total: parseNumber(total),
+          retour: clampNonNeg(parseNumber(retourValue)),
+        };
+      };
+
+      const parseTxtContent = (text) => {
+        const lines = text
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line.length);
+
+        if (!lines.length) {
+          throw new Error("Le fichier est vide.");
+        }
+
+        let startIndex = 0;
+        const firstLine = lines[0].toLowerCase();
+        if (firstLine.includes("material") && firstLine.includes("description")) {
+          startIndex = 1;
+        }
+
+        const rows = [];
+        for (let i = startIndex; i < lines.length; i += 1) {
+          const cells = splitCells(lines[i]);
+          const row = normalizeCells(cells);
+          if (row) {
+            rows.push(row);
+          }
+        }
+
+        if (!rows.length) {
+          throw new Error("Impossible de détecter des lignes valides dans le fichier.");
+        }
+
+        return rows;
       };
 
       const tableBody = document.getElementById("materialsBody");
@@ -219,8 +325,26 @@
         retour: document.getElementById("tileRetour"),
       };
 
+      const fileInput = document.getElementById("file-input");
+      const dropZone = document.getElementById("dropZone");
+      const fileStatus = document.getElementById("fileStatus");
+      const resetButton = document.getElementById("resetData");
+
+      const setStatus = (message, tone = "muted") => {
+        fileStatus.textContent = message;
+        fileStatus.className = `text-xs ${
+          tone === "error"
+            ? "text-red-600"
+            : tone === "success"
+            ? "text-emerald-600"
+            : "text-gray-500"
+        }`;
+      };
+
+      const cloneRows = (rows) => rows.map((row) => ({ ...row }));
+
       const state = {
-        rows: JSON.parse(JSON.stringify(data)),
+        rows: cloneRows(baseData),
       };
 
       const render = () => {
@@ -235,15 +359,19 @@
         };
 
         state.rows.forEach((row) => {
+          const planned = Number(row.planned) || 0;
+          const assigned = Number(row.assigned) || 0;
+          const issued = Number(row.issued) || 0;
+          const total = Number(row.total) || 0;
           const retour = clampNonNeg(Number(row.retour));
-          const consomme = clampNonNeg(row.assigned - retour);
-          const delta = percentDeviation(consomme, row.assigned);
+          const consomme = clampNonNeg(assigned - retour);
+          const delta = percentDeviation(consomme, assigned);
 
           totals = {
-            planned: totals.planned + row.planned,
-            assigned: totals.assigned + row.assigned,
-            issued: totals.issued + row.issued,
-            total: totals.total + row.total,
+            planned: totals.planned + planned,
+            assigned: totals.assigned + assigned,
+            issued: totals.issued + issued,
+            total: totals.total + total,
             retour: totals.retour + retour,
             consomme: totals.consomme + consomme,
           };
@@ -254,9 +382,9 @@
             <td class="whitespace-nowrap px-3 py-3 font-mono text-xs text-gray-700">${row.id}</td>
             <td class="px-3 py-3 text-gray-800">${row.desc}</td>
             <td class="px-3 py-3 text-gray-500">${row.uom}</td>
-            <td class="px-3 py-3 text-right font-medium text-gray-900">${fmt(row.assigned)}</td>
-            <td class="px-3 py-3 text-right text-gray-600">${fmt(row.issued)}</td>
-            <td class="px-3 py-3 text-right text-gray-600">${fmt(row.total)}</td>
+            <td class="px-3 py-3 text-right font-medium text-gray-900">${fmt(assigned)}</td>
+            <td class="px-3 py-3 text-right text-gray-600">${fmt(issued)}</td>
+            <td class="px-3 py-3 text-right text-gray-600">${fmt(total)}</td>
             <td class="px-3 py-3">
               <input
                 type="number"
@@ -272,7 +400,7 @@
                 Math.abs(delta) <= 2
                   ? "bg-emerald-50 text-emerald-700"
                   : "bg-red-50 text-red-700"
-              }">${delta.toFixed(1)}%</span>
+              }">${fmtPercent(delta)}%</span>
             </td>
             <td class="px-3 py-3 text-right">
               <div class="flex justify-end gap-2">
@@ -342,14 +470,27 @@
         URL.revokeObjectURL(url);
       };
 
-      const collectRows = () => {
-        return state.rows.map((row) => {
+      const collectRows = () =>
+        state.rows.map((row) => {
+          const planned = Number(row.planned) || 0;
+          const assigned = Number(row.assigned) || 0;
+          const issued = Number(row.issued) || 0;
+          const total = Number(row.total) || 0;
           const retour = clampNonNeg(Number(row.retour));
-          const consomme = clampNonNeg(row.assigned - retour);
-          const delta = percentDeviation(consomme, row.assigned);
-          return { ...row, retour, consomme, delta: Number(delta.toFixed(1)) };
+          const consomme = clampNonNeg(assigned - retour);
+          const delta = percentDeviation(consomme, assigned);
+
+          return {
+            ...row,
+            planned,
+            assigned,
+            issued,
+            total,
+            retour,
+            consomme,
+            delta: Number(delta.toFixed(1)),
+          };
         });
-      };
 
       document.getElementById("exportJson").addEventListener("click", () => {
         const payload = collectRows().map(({ delta, ...rest }) => ({ ...rest, consomme: rest.consomme }));
@@ -396,7 +537,74 @@
         alert(`Validation du PO\n\n${summary.join("\n")}`);
       });
 
+      const handleDataImport = (file) => {
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith(".txt")) {
+          setStatus("Format non supporté. Merci d'importer un fichier .txt", "error");
+          return;
+        }
+
+        setStatus(`Chargement de « ${file.name} » …`);
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const rows = parseTxtContent(reader.result);
+            state.rows = cloneRows(rows);
+            render();
+            setStatus(`Fichier « ${file.name} » importé (${rows.length} ligne${
+              rows.length > 1 ? "s" : ""
+            }).`, "success");
+          } catch (error) {
+            console.error(error);
+            setStatus(`Échec de l'import : ${error.message}`, "error");
+          }
+        };
+
+        reader.onerror = () => {
+          setStatus("Lecture du fichier impossible.", "error");
+        };
+
+        reader.readAsText(file, "utf-8");
+      };
+
+      fileInput.addEventListener("change", (event) => {
+        const [file] = event.target.files;
+        handleDataImport(file);
+        event.target.value = "";
+      });
+
+      const dropZoneHighlight = (active) => {
+        dropZone.classList.toggle("border-indigo-400", active);
+        dropZone.classList.toggle("bg-indigo-100", active);
+      };
+
+      dropZone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        dropZoneHighlight(true);
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZoneHighlight(false);
+      });
+
+      dropZone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        dropZoneHighlight(false);
+        const { files } = event.dataTransfer;
+        if (files && files.length) {
+          handleDataImport(files[0]);
+        }
+      });
+
+      resetButton.addEventListener("click", () => {
+        state.rows = state.rows.map((row) => ({ ...row, retour: 0 }));
+        render();
+        setStatus("Retours remis à zéro.");
+      });
+
       render();
+      setStatus("Aucun fichier importé pour le moment.");
     </script>
   </body>
 </html>
