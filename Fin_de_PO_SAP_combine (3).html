@@ -704,7 +704,7 @@
             const uoms = [];
             for (let i = 1; i < chunks.length; i += 1) {
               const piece = chunks[i];
-              const match = piece.match(/([\d.,-]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
+              const match = piece.match(/(?<!\/)([\d.,-]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
               if (match) {
                 const numeric = toNum(match[1]);
                 if (numeric != null) numbers.push(numeric);
