@@ -677,6 +677,19 @@
             const tail = codeMatch[2];
             const chunks = tail.split(/\s{2,}/).filter(Boolean);
 
+            let columnsFromEnd = null;
+            {
+              // ... [PLANNED qty UOM] [ASSIGNED qty UOM] [ISSUED qty UOM] [TOTAL A+I qty UOM] (fin de ligne)
+              const endRe = /([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s*$/i;
+              const mEnd = tail.match(endRe);
+              if (mEnd) {
+                columnsFromEnd = {
+                  nums: [mEnd[1], mEnd[3], mEnd[5], mEnd[7]].map((x) => toNum(x)),
+                  uoms: [mEnd[2], mEnd[4], mEnd[6], mEnd[8]].map((u) => u.toUpperCase()),
+                };
+              }
+            }
+
             let material = materials.find((m) => m.material === materialCode);
             if (!material) {
               material = {
@@ -700,47 +713,64 @@
               }
             }
 
-            let startIdx = 1;
-            // Si on détecte une UoM suivie d’un petit nombre (<5) avant les vraies valeurs,
-            // on saute ce couple (ex : "ML 0,6") pour éviter une fausse colonne Planned.
-            if (chunks.length >= 5) {
-              const maybeUom = (chunks[1] || '').trim();
-              const uomProbe = /^(EA|PC|TH|KG|M|L|ML|G)$/i.test(maybeUom);
-              const n1 = toNum((chunks[2] || '').replace(/\s*%$/, ''));
-              const n2 = toNum((chunks[3] || '').replace(/\s*%$/, ''));
-              if (uomProbe && n1 != null && n1 < 5 && n2 != null && n2 > n1 * 5) {
-                startIdx = 3; // on saute "UoM + dosage"
-                material.uom = material.uom || maybeUom.toUpperCase();
-              }
-            }
+            let numbers = [];
+            let uoms = [];
 
-            const numbers = [];
-            const uoms = [];
-            for (let i = startIdx; i < chunks.length; i += 1) {
-              const piece = chunks[i];
-              const m = piece.match(/(?<!\/)([\d.,-]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
-              if (m) {
-                const numeric = toNum(m[1]);
-                if (numeric != null) numbers.push(numeric);
-                uoms.push(m[2].toUpperCase());
-              } else {
-                const numeric = toNum(piece.replace(/\s*%$/, ''));
-                if (numeric != null) numbers.push(numeric);
+            if (columnsFromEnd) {
+              numbers = columnsFromEnd.nums;
+              uoms = columnsFromEnd.uoms;
+            } else {
+              let startIdx = 1;
+              if (chunks.length >= 5) {
+                const maybeUom = (chunks[1] || '').trim();
+                const uomProbe = /^(EA|PC|TH|KG|M|L|ML|G)$/i.test(maybeUom);
+                const n1 = toNum((chunks[2] || '').replace(/\s*%$/, ''));
+                const n2 = toNum((chunks[3] || '').replace(/\s*%$/, ''));
+                if (uomProbe && n1 != null && n1 < 5 && n2 != null && n2 > n1 * 5) {
+                  startIdx = 3; // saute "UoM + dosage"
+                }
+              }
+              for (let i = startIdx; i < chunks.length; i += 1) {
+                const piece = chunks[i];
+                const m = piece.match(/(?<!\/)([\d.,-]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
+                if (m) {
+                  const numeric = toNum(m[1]);
+                  if (numeric != null) numbers.push(numeric);
+                  uoms.push(m[2].toUpperCase());
+                } else {
+                  const numeric = toNum(piece.replace(/\s*%$/, ''));
+                  if (numeric != null) numbers.push(numeric);
+                }
               }
             }
 
             const fields = ['planned', 'assigned', 'issued', 'total_ai'];
             numbers.slice(0, fields.length).forEach((value, idx) => {
               const key = fields[idx];
-              if (value != null && material[key] == null) {
+              if (value != null) {
                 material[key] = value;
               }
             });
 
-            if (uoms.length) {
-              material.uom = uoms
-                .slice()
-                .sort((a, b) => uoms.filter((x) => x === b).length - uoms.filter((x) => x === a).length)[0];
+            if (!material.uom) {
+              const freqHU = {};
+              (material.hus || []).forEach((hu) => {
+                const unit = (hu.uom || '').toUpperCase();
+                if (!unit) return;
+                freqHU[unit] = (freqHU[unit] || 0) + 1;
+              });
+              const bestHU = Object.entries(freqHU).sort((a, b) => b[1] - a[1])[0];
+              if (bestHU) {
+                material.uom = bestHU[0];
+              }
+            }
+
+            if (!material.uom && uoms.length) {
+              const freqLine = {};
+              uoms.forEach((unit) => {
+                freqLine[unit] = (freqLine[unit] || 0) + 1;
+              });
+              material.uom = Object.entries(freqLine).sort((a, b) => b[1] - a[1])[0][0];
             }
 
             const deviationMatch = line.match(/([\d.,-]+)\s*%\s*\|?\s*$/);
