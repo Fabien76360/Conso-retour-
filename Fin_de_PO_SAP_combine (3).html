@@ -707,9 +707,12 @@
             }
 
             if (chunks.length) {
-              const descriptor = chunks[0].trim();
-              if (!material.description && descriptor) {
-                material.description = descriptor;
+              let descIdx = 0;
+              if (/^\d{3,}$/.test(chunks[0]) && (chunks[1] || '').length > 0) {
+                descIdx = 1;
+              }
+              if (!material.description && chunks[descIdx]) {
+                material.description = chunks[descIdx].trim();
               }
             }
 
@@ -752,27 +755,6 @@
               }
             });
 
-            if (!material.uom) {
-              const freqHU = {};
-              (material.hus || []).forEach((hu) => {
-                const unit = (hu.uom || '').toUpperCase();
-                if (!unit) return;
-                freqHU[unit] = (freqHU[unit] || 0) + 1;
-              });
-              const bestHU = Object.entries(freqHU).sort((a, b) => b[1] - a[1])[0];
-              if (bestHU) {
-                material.uom = bestHU[0];
-              }
-            }
-
-            if (!material.uom && uoms.length) {
-              const freqLine = {};
-              uoms.forEach((unit) => {
-                freqLine[unit] = (freqLine[unit] || 0) + 1;
-              });
-              material.uom = Object.entries(freqLine).sort((a, b) => b[1] - a[1])[0][0];
-            }
-
             const deviationMatch = line.match(/([\d.,-]+)\s*%\s*\|?\s*$/);
             if (deviationMatch) {
               const deviationRaw = deviationMatch[1];
@@ -798,6 +780,25 @@
                 lookahead += 1;
               }
               index = lookahead - 1;
+            }
+
+            {
+              const freqHU = {};
+              (material.hus || []).forEach((hu) => {
+                const unit = (hu.uom || '').toUpperCase();
+                if (unit) freqHU[unit] = (freqHU[unit] || 0) + 1;
+              });
+              const bestHU = Object.entries(freqHU).sort((a, b) => b[1] - a[1])[0];
+              if (bestHU) {
+                material.uom = bestHU[0];
+              } else if (!material.uom && uoms.length) {
+                const freqLine = {};
+                uoms.forEach((unit) => {
+                  freqLine[unit] = (freqLine[unit] || 0) + 1;
+                });
+                const bestLine = Object.entries(freqLine).sort((a, b) => b[1] - a[1])[0];
+                if (bestLine) material.uom = bestLine[0];
+              }
             }
           }
         }
