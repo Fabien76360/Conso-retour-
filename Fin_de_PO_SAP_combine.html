@@ -401,6 +401,13 @@
       vertical-align: middle;
     }
 
+    #retoursTable .col-desc {
+      max-width: 240px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
     #retoursTable input[type="number"] {
       width: 100%;
       background: rgba(15, 23, 42, 0.6);
@@ -586,6 +593,7 @@
               <thead>
                 <tr>
                   <th>HU</th>
+                  <th>Désignation</th>
                   <th>Assigné</th>
                   <th>Nb de cartons</th>
                   <th>Contenu/carton</th>
@@ -1133,6 +1141,13 @@ Material Summary
         };
 
         tr.appendChild(createCell(`<strong>${row.hu}</strong>`, 'col-hu'));
+
+        const descCell = createCell('', 'col-desc');
+        const descText = row.desc || '';
+        descCell.textContent = descText;
+        if (descText) descCell.title = descText;
+        tr.appendChild(descCell);
+
         tr.appendChild(createCell(formatNumber(row.assigned), 'col-assigned'));
 
         const nbCartonsInput = document.createElement('input');
