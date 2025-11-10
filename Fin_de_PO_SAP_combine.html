@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fin de PO SAP – Extraction & Retours</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: rgba(17, 24, 39, 0.88);
+      --ink: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #22d3ee;
+      --border: #1e293b;
+      --danger: #f87171;
+      --warning: #facc15;
+      --success: #34d399;
+      --surface: rgba(15, 23, 42, 0.75);
+      --badge-green: rgba(52, 211, 153, 0.15);
+      --badge-orange: rgba(245, 158, 11, 0.18);
+      --badge-red: rgba(248, 113, 113, 0.2);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, rgba(34, 211, 238, 0.12), transparent 45%), var(--bg);
+      color: var(--ink);
+      font: 14px/1.5 "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(10, 16, 28, 0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      padding: 18px clamp(12px, 3vw, 32px);
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(20px, 5vw, 30px);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      max-width: 640px;
+    }
+
+    .tab-bar {
+      display: inline-flex;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 999px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .tab-bar button {
+      appearance: none;
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--muted);
+      background: transparent;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .tab-bar button.active {
+      background: var(--accent);
+      color: #03111a;
+      box-shadow: 0 6px 18px rgba(34, 211, 238, 0.35);
+    }
+
+    main {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .main-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: clamp(16px, 4vw, 40px);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    section[hidden] {
+      display: none !important;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+      padding: clamp(16px, 3vw, 26px);
+      backdrop-filter: blur(6px);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    input[type="file"] {
+      background: rgba(8, 15, 27, 0.9);
+      color: var(--ink);
+      border: 1px dashed rgba(148, 163, 184, 0.35);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(8, 15, 27, 0.9);
+      color: var(--ink);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    button:hover {
+      border-color: rgba(148, 163, 184, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .pill {
+      padding: 10px 12px;
+      background: rgba(8, 15, 27, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 10px;
+      min-height: 60px;
+    }
+
+    .pill.toggle {
+      min-height: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .pill.toggle input {
+      accent-color: var(--accent);
+      transform: translateY(1px);
+    }
+
+    .pill.toggle input:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .pill .label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .pill strong {
+      font-weight: 600;
+      color: var(--ink);
+      word-break: break-word;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .meta-grid {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.95);
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+      z-index: 10;
+    }
+
+    tbody tr.material-row:hover td {
+      box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+
+    tbody tr.state-green td { background: rgba(16, 185, 129, 0.12); }
+    tbody tr.state-yellow td { background: rgba(245, 158, 11, 0.16); }
+    tbody tr.state-gray td { background: rgba(148, 163, 184, 0.14); }
+
+    .resume-row td {
+      background: rgba(34, 211, 238, 0.08);
+      border-left: 1px solid rgba(34, 211, 238, 0.18);
+      border-right: 1px solid rgba(34, 211, 238, 0.18);
+      border-bottom: 1px solid rgba(34, 211, 238, 0.24);
+      color: #9aa4b2;
+      font-size: 12px;
+      letter-spacing: 0.01em;
+    }
+
+    .resume-row strong { color: #e2e8f0; }
+
+    .resume-label {
+      display: inline-block;
+      margin-right: 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #38bdf8;
+      font-size: 11px;
+    }
+
+    .cardify td {
+      border-left: 1px solid rgba(30, 41, 59, 0.9);
+      border-right: 1px solid rgba(30, 41, 59, 0.9);
+    }
+
+    .cardify td:first-child { border-top-left-radius: 12px; }
+    .cardify td:last-child { border-top-right-radius: 12px; }
+    .resume-row td:first-child { border-bottom-left-radius: 12px; }
+    .resume-row td:last-child { border-bottom-right-radius: 12px; }
+    .cardify:not(.resume-row) td { border-top: 1px solid rgba(30, 41, 59, 0.9); }
+
+    details summary {
+      cursor: pointer;
+      color: var(--accent);
+    }
+
+    .hu-list { margin-top: 8px; }
+    .hu-item { font-size: 12px; color: var(--ink); margin-bottom: 6px; }
+    .hu-item .hu-status { font-weight: 600; }
+    .hu-item .Assigned { color: var(--accent); }
+    .hu-item .Issued { color: var(--warning); }
+    .hu-item .empty { color: var(--muted); }
+
+    body.op-big {
+      font-size: 16px;
+    }
+
+    body.op-big table th,
+    body.op-big table td {
+      padding: 14px 16px;
+      font-size: 16px;
+    }
+
+    body.op-big details summary {
+      font-size: 16px;
+    }
+
+    /* Retours section */
+    .muted {
+      color: var(--muted);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .retours-card {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .retours-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .retours-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .retours-actions button {
+      background: rgba(34, 211, 238, 0.08);
+      border-color: rgba(34, 211, 238, 0.35);
+    }
+
+    .retours-actions button:hover {
+      border-color: rgba(34, 211, 238, 0.6);
+      background: rgba(34, 211, 238, 0.15);
+    }
+
+    .retours-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    .meta-item {
+      background: rgba(148, 163, 184, 0.08);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    .meta-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+
+    .retours-table-wrap {
+      overflow-x: auto;
+    }
+
+    #retoursTable th {
+      top: auto;
+      position: sticky;
+      top: 0;
+    }
+
+    #retoursTable td {
+      vertical-align: middle;
+    }
+
+    #retoursTable input[type="number"] {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--ink);
+      font-size: inherit;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    #retoursTable input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25);
+    }
+
+    #retoursTable input.invalid {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.25);
+    }
+
+    #retoursTable tr.row-error td {
+      background: rgba(248, 113, 113, 0.08);
+    }
+
+    #retoursTable tr.validated {
+      opacity: 0.55;
+    }
+
+    #retoursTable td.readonly {
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    #retoursTable td.readonly.consume {
+      color: var(--success);
+    }
+
+    #retoursTable .checkbox {
+      display: flex;
+      justify-content: center;
+    }
+
+    #retoursTable .checkbox input {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--accent);
+    }
+
+    .retours-empty {
+      padding: 32px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed rgba(148, 163, 184, 0.3);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .retours-summary {
+      position: sticky;
+      bottom: 12px;
+      background: rgba(8, 15, 27, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 20px 50px rgba(8, 14, 26, 0.45);
+    }
+
+    .summary-values {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-weight: 600;
+    }
+
+    .summary-values span {
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .summary-values strong {
+      color: var(--ink);
+      margin-left: 6px;
+      font-size: 15px;
+    }
+
+    .badge-gap {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+
+    .badge-green {
+      background: var(--badge-green);
+      border: 1px solid rgba(52, 211, 153, 0.5);
+      color: var(--success);
+    }
+
+    .badge-orange {
+      background: var(--badge-orange);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      color: #fbbf24;
+    }
+
+    .badge-red {
+      background: var(--badge-red);
+      border: 1px solid rgba(248, 113, 113, 0.6);
+      color: var(--danger);
+    }
+
+    @media (max-width: 900px) {
+      th, td { padding: 8px; }
+      .controls { gap: 10px; }
+      .retours-summary { flex-direction: column; align-items: flex-start; }
+      .summary-values { width: 100%; justify-content: space-between; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>Extractor Fin de PO – SAP TXT</h1>
+        <p>Importe un texte SAP « Materials and Reconciliation Report 2 », visualise les matériaux et prépare la saisie des retours HU en fin de process.</p>
+      </div>
+      <div class="tab-bar">
+        <button type="button" class="active" data-target="extractor">Extraction SAP</button>
+        <button type="button" data-target="retours">Saisie retours</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="main-inner">
+      <section id="extractor">
+        <div class="panel">
+          <div class="controls">
+            <input id="fileInput" type="file" accept=".txt,.log,.lst,.out,.prn,.csv,.*" />
+            <button id="btnDemo" type="button">Essai rapide</button>
+            <button id="btnExport" type="button">Exporter CSV</button>
+            <label class="pill toggle"><input type="checkbox" id="toggleIssued" /> Masquer les Issued</label>
+            <label class="pill toggle"><input type="checkbox" id="modeOp" /> Mode opérateur</label>
+            <span id="stats" class="tag">0 materials • 0 HU</span>
+          </div>
+          <div id="meta" class="meta-grid"></div>
+        </div>
+        <div class="panel">
+          <table id="materialsTable">
+            <thead>
+              <tr id="tableHead"></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="retours" hidden>
+        <div class="panel retours-card">
+          <div class="retours-header">
+            <div>
+              <h2>Saisie retours par HU</h2>
+              <p class="muted">Complète les retours physiques pour chaque HU « Assigned » issue de l'extraction.</p>
+            </div>
+            <div class="retours-actions">
+              <button type="button" id="exportReturns">Exporter retours (CSV)</button>
+              <button type="button" id="exportConsumption">Exporter consommations (CSV)</button>
+              <button type="button" id="exportJournal">Exporter journal (JSON)</button>
+            </div>
+          </div>
+          <div id="retoursMeta" class="retours-meta"></div>
+          <div id="retoursEmpty" class="retours-empty" hidden>Veuillez d'abord importer un fichier SAP pour disposer des HU assignées.</div>
+          <div class="retours-table-wrap">
+            <table id="retoursTable">
+              <thead>
+                <tr>
+                  <th>HU</th>
+                  <th>Assigné</th>
+                  <th>Nb de cartons</th>
+                  <th>Contenu/carton</th>
+                  <th>Unités en vrac</th>
+                  <th>Total retour</th>
+                  <th>Consommé</th>
+                  <th>Valider</th>
+                </tr>
+              </thead>
+              <tbody id="retoursBody"></tbody>
+            </table>
+          </div>
+          <div id="retoursSummary" class="retours-summary" hidden>
+            <div class="summary-values">
+              <span>Σ Assigné<strong id="sumAssigned">0</strong></span>
+              <span>Σ Retours<strong id="sumRetours">0</strong></span>
+              <span>Σ Consommé<strong id="sumConsomme">0</strong></span>
+            </div>
+            <div id="gapBadge" class="badge-gap badge-green">Écart 0 %</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const state = {
+      parsed: null,
+      retours: [],
+    };
+
+    let toggleIssued = null;
+    let modeOpToggle = null;
+
+    const toNum = (input) => {
+      if (input == null) return null;
+      let value = String(input).trim();
+      if (!value) return null;
+      const isNeg = /-$/.test(value);
+      value = value.replace(/-/g, '').replace(/[\s\u00A0\u202F]/g, '').replace(/,/g, '');
+      const numeric = Number(value);
+      if (Number.isNaN(numeric)) return null;
+      return isNeg ? -numeric : numeric;
+    };
+
+    const cleanLine = (line) => line.replace(/[\u00A0\u202F]/g, ' ').replace(/\s+$/, '');
+
+    function parseReport(text) {
+      const lines = text.split(/\r?\n/).map(cleanLine).filter(Boolean);
+      const skipPattern = /^(ASPEN\s+.*Page\s*:|Printed on\s*:|Report Id\s*:|Variant Id\s*:|Storage Location\s*:|\*+END OF REPORT\*+)/;
+      const meta = { po: null, output: null, output_desc: null, output_batch: null, planned: null, actual: null, yield: null };
+
+      for (const line of lines) {
+        if (/^Process Order\s+/.test(line)) meta.po = line.split(/\s+/).pop();
+        if (/^Output Material\s+/.test(line)) {
+          const match = line.match(/^Output Material\s+(\d+)\s+(.*)$/);
+          if (match) {
+            meta.output = match[1];
+            meta.output_desc = match[2].trim();
+          }
+        }
+        if (/^Output Batch Number\s+/.test(line)) meta.output_batch = line.replace(/^Output Batch Number\s+/, '').trim();
+        if (/^Planned Quantity\s+/.test(line)) {
+          const match = line.match(/Planned Quantity\s+([\d.,]+)\s+(\w+)/);
+          if (match) meta.planned = { qty: toNum(match[1]), uom: match[2] };
+        }
+        if (/^Actual Quantity\s+/.test(line)) {
+          const match = line.match(/Actual Quantity\s+([\d.,]+)\s+(\w+)/);
+          if (match) meta.actual = { qty: toNum(match[1]), uom: match[2] };
+        }
+        if (/^Yield\s+/.test(line)) {
+          const match = line.match(/Yield\s+([\d.,-]+)\s*%/);
+          if (match) meta.yield = toNum(match[1]);
+        }
+      }
+
+      const body = lines.filter((line) => !skipPattern.test(line));
+      const materials = [];
+      let totalHU = 0;
+      let index = 0;
+      const isMaterialRow = (line) => /^\|\d{5,}/.test(line) && !/Handling Unit/.test(line);
+      const isHUHeader = (line) => /\|\s+Handling Unit\s+Batch\s+HU Quantity\s+Status/i.test(line);
+      const isHUData = (line) => /^\|\s+\d{8,}/.test(line);
+
+      while (index < body.length) {
+        const line = body[index];
+        if (isMaterialRow(line)) {
+          const material = {
+            material: null,
+            description: '',
+            uom: null,
+            planned: null,
+            assigned: null,
+            issued: null,
+            total_ai: null,
+            converted: null,
+            pct_deviation: null,
+            hus: [],
+          };
+
+          const codeMatch = line.match(/^\|(\d{5,})\s+(.*)$/);
+          if (codeMatch) {
+            material.material = codeMatch[1];
+            const tail = codeMatch[2];
+            const chunks = tail.split(/\s{2,}/).filter(Boolean);
+            material.description = (chunks[0] || '').trim();
+            const numbers = [];
+            const uoms = [];
+            for (let i = 1; i < chunks.length; i += 1) {
+              const piece = chunks[i];
+              const match = piece.match(/([\d.,]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
+              if (match) {
+                numbers.push(toNum(match[1]));
+                uoms.push(match[2].toUpperCase());
+              }
+            }
+            if (numbers.length >= 4) {
+              [material.planned, material.assigned, material.issued, material.total_ai] = numbers.slice(0, 4);
+              if (uoms.length) {
+                material.uom = uoms.sort((a, b) => uoms.filter((x) => x === b).length - uoms.filter((x) => x === a).length)[0];
+              }
+            }
+          }
+          index += 1;
+
+          if (index < body.length && isHUHeader(body[index])) index += 1;
+          while (index < body.length && isHUData(body[index])) {
+            const huLine = body[index].replace(/^\|/, '');
+            const match = huLine.match(/\s*(\d{8,})\s+(\w+)\s+([\d.,]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+(Assigned|Issued)/i);
+            if (match) {
+              material.hus.push({
+                hu: match[1],
+                batch: match[2],
+                qty: toNum(match[3]),
+                uom: match[4].toUpperCase(),
+                status: match[5],
+              });
+              totalHU += 1;
+            }
+            index += 1;
+          }
+
+          if (index < body.length && isMaterialRow(body[index])) {
+            const summary = body[index];
+            const tokens = summary.split(/\s{2,}/).filter(Boolean);
+            const numbers = tokens.slice(1).map((token) => toNum(token.replace(/\s*%$/, ''))).filter((value) => value !== null);
+            if (numbers.length >= 5) {
+              material.planned = material.planned ?? numbers[0];
+              material.assigned = material.assigned ?? numbers[1];
+              material.issued = material.issued ?? numbers[2];
+              material.total_ai = material.total_ai ?? numbers[3];
+              material.converted = numbers[4];
+            }
+            const deviationMatch = summary.match(/([\d.,-]+)\s*%\s*\|?\s*$/);
+            if (deviationMatch) {
+              const deviation = deviationMatch[1].trim();
+              material.pct_deviation = deviation === '99,999,999.0' ? null : toNum(deviation);
+            }
+            index += 1;
+          }
+
+          materials.push(material);
+          continue;
+        }
+        index += 1;
+      }
+
+      return { meta, materials, totalHU };
+    }
+
+    const formatNumber = (value) => {
+      if (value == null || Number.isNaN(value)) return '';
+      const formatter = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
+      return formatter.format(value);
+    };
+
+    function createPill(label, value) {
+      return `<div class="pill"><span class="label">${label}</span><strong>${value}</strong></div>`;
+    }
+
+    function renderMeta(meta) {
+      const container = document.getElementById('meta');
+      if (!meta) {
+        container.innerHTML = '';
+        return;
+      }
+      const blocks = [];
+      if (meta.po) blocks.push(createPill('PO', meta.po));
+      if (meta.output) blocks.push(createPill('Output', `${meta.output} – ${meta.output_desc || ''}`));
+      if (meta.output_batch) blocks.push(createPill('Batch', meta.output_batch));
+      if (meta.planned) blocks.push(createPill('Planned', `${formatNumber(meta.planned.qty)} ${meta.planned.uom}`));
+      if (meta.actual) blocks.push(createPill('Actual', `${formatNumber(meta.actual.qty)} ${meta.actual.uom}`));
+      if (meta.yield != null) blocks.push(createPill('Yield', `${formatNumber(meta.yield)} %`));
+      container.innerHTML = blocks.join('');
+    }
+
+    function getVisibleHUs(material) {
+      if (!Array.isArray(material.hus)) return [];
+      if (!toggleIssued) return material.hus;
+      return toggleIssued.checked ? material.hus.filter((hu) => hu.status !== 'Issued') : material.hus;
+    }
+
+    const DEFAULT_COLUMNS = [
+      {
+        key: 'material',
+        label: 'Material',
+        className: 'col-material',
+        render: (item) => item.material || '',
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        className: 'col-description',
+        render: (item) => item.description || '',
+      },
+      {
+        key: 'uom',
+        label: 'UoM',
+        className: 'col-uom',
+        render: (item) => item.uom || '',
+      },
+      {
+        key: 'planned',
+        label: 'Planned',
+        className: 'col-planned',
+        render: (item) => formatNumber(item.planned),
+      },
+      {
+        key: 'assigned',
+        label: 'Assigned',
+        className: 'col-assigned',
+        render: (item) => formatNumber(item.assigned),
+      },
+      {
+        key: 'issued',
+        label: 'Issued',
+        className: 'col-issued',
+        render: (item) => formatNumber(item.issued),
+      },
+      {
+        key: 'total_ai',
+        label: 'Total A+I',
+        className: 'col-total',
+        render: (item) => formatNumber(item.total_ai),
+      },
+      {
+        key: 'hu',
+        label: 'HU',
+        className: 'col-hu',
+        render: (_, visibleHUs) => renderHU(visibleHUs),
+      },
+    ];
+
+    const OPERATOR_COLUMNS = [
+      DEFAULT_COLUMNS[0],
+      DEFAULT_COLUMNS[1],
+      DEFAULT_COLUMNS[4],
+      DEFAULT_COLUMNS[5],
+      DEFAULT_COLUMNS[6],
+      DEFAULT_COLUMNS[7],
+    ];
+
+    function isModeOperator() {
+      return !!(modeOpToggle && modeOpToggle.checked);
+    }
+
+    function renderTable(entries) {
+      const headRow = document.getElementById('tableHead');
+      const tbody = document.getElementById('tableBody');
+      const columns = isModeOperator() ? OPERATOR_COLUMNS : DEFAULT_COLUMNS;
+      headRow.innerHTML = columns.map((col) => `<th class="${col.className || ''}">${col.label}</th>`).join('');
+      tbody.innerHTML = '';
+
+      const fragment = document.createDocumentFragment();
+      for (const { material: item, visibleHUs } of entries) {
+        const mainRow = document.createElement('tr');
+        mainRow.classList.add('material-row', 'cardify');
+        const stateClass = resolveStateClass(item, visibleHUs);
+        if (stateClass) mainRow.classList.add(stateClass);
+        mainRow.innerHTML = columns
+          .map((col) => `<td class="${col.className || ''}">${col.render(item, visibleHUs)}</td>`)
+          .join('');
+        fragment.appendChild(mainRow);
+
+        const resumeRow = document.createElement('tr');
+        resumeRow.classList.add('resume-row');
+        resumeRow.innerHTML = `<td colspan="${columns.length}"><span class="resume-label">Σ Résumé :</span> Planned <strong>${formatNumber(item.planned)}</strong> | Assigned <strong>${formatNumber(item.assigned)}</strong> | Issued <strong>${formatNumber(item.issued)}</strong> | Total A+I <strong>${formatNumber(item.total_ai)}</strong></td>`;
+        fragment.appendChild(resumeRow);
+      }
+      tbody.appendChild(fragment);
+    }
+
+    function resolveStateClass(item, visibleHUs) {
+      if (!visibleHUs.length) return 'state-gray';
+      const allAssigned = visibleHUs.every((hu) => hu.status === 'Assigned');
+      const issuedQty = typeof item.issued === 'number' ? item.issued : 0;
+      if (allAssigned && issuedQty <= 0) return 'state-green';
+      return 'state-yellow';
+    }
+
+    function renderHU(list) {
+      const items = Array.isArray(list) ? list : [];
+      const count = items.length;
+      const inner = count
+        ? items
+            .map(
+              (hu) =>
+                `<div class="hu-item">HU <strong>${hu.hu}</strong> • Batch ${hu.batch} • ${formatNumber(hu.qty)} ${hu.uom} • <span class="hu-status ${hu.status}">${hu.status}</span></div>`
+            )
+            .join('')
+        : '<div class="hu-item empty">Aucun HU visible</div>';
+      return `<details><summary>${count} HU</summary><div class="hu-list">${inner}</div></details>`;
+    }
+
+    function updateStats(entries) {
+      const label = document.getElementById('stats');
+      const totalVisibleHU = entries.reduce((sum, entry) => sum + entry.visibleHUs.length, 0);
+      label.textContent = `${entries.length} materials • ${totalVisibleHU} HU`;
+    }
+
+    function toCSV(materials) {
+      const header = ['material', 'description', 'uom', 'planned', 'assigned', 'issued', 'total_ai', 'hu_count'];
+      const rows = [header.join(',')];
+      for (const mat of materials) {
+        const values = [
+          mat.material,
+          mat.description,
+          mat.uom,
+          mat.planned,
+          mat.assigned,
+          mat.issued,
+          mat.total_ai,
+          getVisibleHUs(mat).length,
+        ].map((value) => {
+          if (value == null) return '';
+          const text = String(value);
+          return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        });
+        rows.push(values.join(','));
+      }
+      return rows.join('\n');
+    }
+
+    function renderAll() {
+      if (!state.parsed) return;
+      const entries = state.parsed.materials.map((mat) => ({
+        material: mat,
+        visibleHUs: getVisibleHUs(mat).slice(),
+      }));
+      const operatorMode = isModeOperator();
+      document.body.classList.toggle('op-big', operatorMode);
+      if (toggleIssued) {
+        if (operatorMode && !toggleIssued.checked) toggleIssued.checked = true;
+        toggleIssued.disabled = operatorMode;
+      }
+      renderMeta(state.parsed.meta);
+      renderTable(entries);
+      updateStats(entries);
+      updateRetoursMeta();
+      refreshRetoursData();
+    }
+
+    function render(parsed) {
+      state.parsed = parsed;
+      window.__parsed = parsed;
+      renderAll();
+      prepareRetoursData();
+      buildRetoursTable();
+      refreshRetoursSummary();
+    }
+
+    const fileInput = document.getElementById('fileInput');
+    fileInput.addEventListener('change', async (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      const parsed = parseReport(text);
+      render(parsed);
+    });
+
+    document.getElementById('btnExport').addEventListener('click', () => {
+      if (!state.parsed || !state.parsed.materials.length) {
+        alert('Aucune donnée à exporter.');
+        return;
+      }
+      const csv = toCSV(state.parsed.materials);
+      const po = state.parsed.meta.po || 'po';
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `fin_po_${po}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    });
+
+    document.getElementById('btnDemo').addEventListener('click', () => {
+      const parsed = parseReport(DEMO_TEXT);
+      render(parsed);
+    });
+
+    toggleIssued = document.getElementById('toggleIssued');
+    if (toggleIssued) {
+      toggleIssued.addEventListener('change', () => {
+        if (isModeOperator() && !toggleIssued.checked) {
+          toggleIssued.checked = true;
+        }
+        renderAll();
+      });
+    }
+
+    modeOpToggle = document.getElementById('modeOp');
+    if (modeOpToggle) {
+      modeOpToggle.addEventListener('change', () => {
+        if (modeOpToggle.checked && toggleIssued && !toggleIssued.checked) {
+          toggleIssued.checked = true;
+        }
+        renderAll();
+      });
+    }
+
+    const DEMO_TEXT = `Material Reconciliation Report 2
+Process Order           1049013
+Output Material         46174               ARIXTRA 2.5MG 10SPR BE
+Output Batch Number     0238
+Planned Quantity              2,500 EA
+Actual Quantity               1,350 EA
+Yield                          54.0 %
+
+Material Summary
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|36835                                 PVC 400 MICRONS LAIZE 333 RL            89.500  KG             326  KG               0  KG             326  KG                                                                                               |
+|                  Handling Unit                                     Batch          HU Quantity         Status   Packing            Document   Issue Date Operator  Reviewer       Date        Comment                                              |
+|                  136631621622044335                                2025085131               326  KG   Assigned NDB-PAL-BOI-EU-P12                                                                                                                 |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|36835                                 PVC 400 MICRONS LAIZE 333 RL            89.500                 326                   0                 326            48.330      99,999,999.0  %                                                            |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|324480                                ETUI ARIXTRA 2.5MG 10SPR 3H BE           2.500  TH           4.400  TH           0.274  TH           4.674  TH                                                                                               |
+|                  Handling Unit                                     Batch          HU Quantity         Status   Packing            Document   Issue Date Operator  Reviewer       Date        Comment                                              |
+|                  136631621622719820                                2025307430             4.400  TH   Assigned NDB-PAL-BOI-EU-P12                                                                                                                 |
+|                  36631621622802983                                 2025277176             0.274  TH   Issued   NDB-CAR-CRF-FR-KA1 4900871689 05.11.2025                                                                                           |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|324480                                ETUI ARIXTRA 2.5MG 10SPR 3H BE           2.500               4.400               0.274               4.674             1.350              79.8- %                                                            |
+`;
+
+    const tabButtons = Array.from(document.querySelectorAll('.tab-bar button[data-target]'));
+    tabButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const target = button.getAttribute('data-target');
+        switchTab(target, button);
+      });
+    });
+
+    function switchTab(targetId, activeButton) {
+      document.querySelectorAll('section').forEach((section) => {
+        section.hidden = section.id !== targetId;
+      });
+      tabButtons.forEach((btn) => btn.classList.toggle('active', btn === activeButton));
+      if (targetId === 'retours') {
+        buildRetoursTable();
+        refreshRetoursSummary();
+      }
+    }
+
+    /* Retours logic */
+    function prepareRetoursData() {
+      state.retours = [];
+      if (!state.parsed) return;
+      const po = state.parsed.meta.po || '';
+      let counter = 0;
+      for (const material of state.parsed.materials) {
+        const description = material.description || '';
+        const materialCode = material.material || '';
+        for (const hu of material.hus || []) {
+          if (hu.status === 'Assigned') {
+            const assigned = typeof hu.qty === 'number' ? hu.qty : toNum(hu.qty);
+            state.retours.push({
+              id: counter += 1,
+              po,
+              material: materialCode,
+              desc: description,
+              hu: hu.hu || '',
+              uom: hu.uom || material.uom || '',
+              assigned: assigned || 0,
+              packSize: 0,
+              nbCartons: 0,
+              contenuCarton: 0,
+              vrac: 0,
+              retourHU: 0,
+              consommeHU: assigned || 0,
+              validated: false,
+              errors: {},
+              isValid: true,
+              dom: {},
+            });
+          }
+        }
+      }
+    }
+
+    function updateRetoursMeta() {
+      const metaBox = document.getElementById('retoursMeta');
+      if (!state.parsed) {
+        metaBox.innerHTML = '';
+        return;
+      }
+      const { meta } = state.parsed;
+      const fragments = [];
+      if (meta.po) fragments.push(`<div class="meta-item"><span>Process Order</span>${meta.po}</div>`);
+      if (meta.output) fragments.push(`<div class="meta-item"><span>Output</span>${meta.output} – ${meta.output_desc || ''}</div>`);
+      if (meta.output_batch) fragments.push(`<div class="meta-item"><span>Batch</span>${meta.output_batch}</div>`);
+      metaBox.innerHTML = fragments.join('');
+    }
+
+    function buildRetoursTable() {
+      const emptyNotice = document.getElementById('retoursEmpty');
+      const tableBody = document.getElementById('retoursBody');
+      const summary = document.getElementById('retoursSummary');
+      tableBody.innerHTML = '';
+      if (!state.retours.length) {
+        emptyNotice.hidden = false;
+        summary.hidden = true;
+        return;
+      }
+      emptyNotice.hidden = true;
+      summary.hidden = false;
+
+      const fragment = document.createDocumentFragment();
+      const inputs = [];
+
+      state.retours.forEach((row) => {
+        const tr = document.createElement('tr');
+        row.dom.row = tr;
+        tr.dataset.id = row.id;
+
+        const step = (row.uom || '').toUpperCase() === 'EA' ? 1 : 0.001;
+
+        const createCell = (content, className) => {
+          const td = document.createElement('td');
+          if (className) td.className = className;
+          if (content != null) td.innerHTML = content;
+          return td;
+        };
+
+        tr.appendChild(createCell(`<strong>${row.hu}</strong>`, 'col-hu'));
+        tr.appendChild(createCell(formatNumber(row.assigned), 'col-assigned'));
+
+        const nbCartonsInput = document.createElement('input');
+        nbCartonsInput.type = 'number';
+        nbCartonsInput.min = '0';
+        nbCartonsInput.step = step === 1 ? '1' : '0.001';
+        nbCartonsInput.value = row.nbCartons ? String(row.nbCartons) : '';
+        nbCartonsInput.dataset.field = 'nbCartons';
+        nbCartonsInput.dataset.id = row.id;
+        nbCartonsInput.id = `retours-${row.id}-nb`;
+        attachRetoursInput(nbCartonsInput, row);
+        const nbCell = createCell('', 'col-cartons');
+        const nbLabel = document.createElement('label');
+        nbLabel.className = 'sr-only';
+        nbLabel.setAttribute('for', nbCartonsInput.id);
+        nbLabel.textContent = `Nb de cartons pour HU ${row.hu}`;
+        nbCell.appendChild(nbLabel);
+        nbCell.appendChild(nbCartonsInput);
+        tr.appendChild(nbCell);
+
+        const contenuInput = document.createElement('input');
+        contenuInput.type = 'number';
+        contenuInput.min = '0';
+        contenuInput.step = step === 1 ? '1' : '0.001';
+        contenuInput.value = row.contenuCarton ? String(row.contenuCarton) : row.packSize ? String(row.packSize) : '';
+        contenuInput.placeholder = row.packSize ? formatNumber(row.packSize) : '';
+        contenuInput.dataset.field = 'contenuCarton';
+        contenuInput.dataset.id = row.id;
+        contenuInput.id = `retours-${row.id}-contenu`;
+        attachRetoursInput(contenuInput, row);
+        const contenuCell = createCell('', 'col-contenu');
+        const contenuLabel = document.createElement('label');
+        contenuLabel.className = 'sr-only';
+        contenuLabel.setAttribute('for', contenuInput.id);
+        contenuLabel.textContent = `Contenu par carton pour HU ${row.hu}`;
+        contenuCell.appendChild(contenuLabel);
+        contenuCell.appendChild(contenuInput);
+        tr.appendChild(contenuCell);
+
+        const vracInput = document.createElement('input');
+        vracInput.type = 'number';
+        vracInput.min = '0';
+        vracInput.step = step === 1 ? '1' : '0.001';
+        vracInput.value = row.vrac ? String(row.vrac) : '';
+        vracInput.dataset.field = 'vrac';
+        vracInput.dataset.id = row.id;
+        vracInput.id = `retours-${row.id}-vrac`;
+        attachRetoursInput(vracInput, row);
+        const vracCell = createCell('', 'col-vrac');
+        const vracLabel = document.createElement('label');
+        vracLabel.className = 'sr-only';
+        vracLabel.setAttribute('for', vracInput.id);
+        vracLabel.textContent = `Unités en vrac pour HU ${row.hu}`;
+        vracCell.appendChild(vracLabel);
+        vracCell.appendChild(vracInput);
+        tr.appendChild(vracCell);
+
+        const retourCell = createCell(formatNumber(row.retourHU), 'readonly');
+        tr.appendChild(retourCell);
+
+        const consommeCell = createCell(formatNumber(row.consommeHU), 'readonly consume');
+        tr.appendChild(consommeCell);
+
+        const checkboxCell = createCell('', 'checkbox');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = row.validated;
+        checkbox.addEventListener('change', (event) => {
+          if (!row.isValid) {
+            event.preventDefault();
+            checkbox.checked = false;
+            return;
+          }
+          row.validated = checkbox.checked;
+          updateRetoursRow(row);
+          refreshRetoursSummary();
+        });
+        checkboxCell.appendChild(checkbox);
+        tr.appendChild(checkboxCell);
+
+        row.dom = {
+          row: tr,
+          nbCartonsInput,
+          contenuInput,
+          vracInput,
+          retourCell,
+          consommeCell,
+          checkbox,
+        };
+
+        inputs.push(nbCartonsInput, contenuInput, vracInput);
+        fragment.appendChild(tr);
+      });
+
+      tableBody.appendChild(fragment);
+      inputs.forEach((input) => input.setAttribute('data-editable', 'true'));
+      state.retours.forEach((row) => updateRetoursRow(row));
+      refreshRetoursSummary();
+    }
+
+    function attachRetoursInput(input, row) {
+      input.addEventListener('input', () => {
+        applyRetoursValue(row, input.dataset.field, input.value, input);
+        updateRetoursRow(row);
+        refreshRetoursSummary();
+      });
+      input.addEventListener('blur', () => {
+        applyRetoursValue(row, input.dataset.field, input.value, input, { forceFormat: true });
+        updateRetoursRow(row);
+        refreshRetoursSummary();
+      });
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          focusNextRetoursInput(event.target);
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          event.target.value = '';
+          applyRetoursValue(row, event.target.dataset.field, '', event.target);
+          updateRetoursRow(row);
+          refreshRetoursSummary();
+        }
+      });
+    }
+
+    function focusNextRetoursInput(current) {
+      const inputs = Array.from(document.querySelectorAll('#retoursBody input[data-editable="true"]'));
+      const index = inputs.indexOf(current);
+      if (index >= 0) {
+        const next = inputs[index + 1] || inputs[0];
+        next.focus();
+        next.select?.();
+      }
+    }
+
+    function parseValue(raw, step) {
+      if (raw === '' || raw == null) return null;
+      let num = Number(raw);
+      if (Number.isNaN(num) || num < 0) num = 0;
+      if (step === 1) num = Math.round(num);
+      return num;
+    }
+
+    function applyRetoursValue(row, field, raw, input, options = {}) {
+      const step = (row.uom || '').toUpperCase() === 'EA' ? 1 : 0.001;
+      const value = parseValue(raw, step);
+      if (field === 'contenuCarton') {
+        row[field] = value;
+      } else if (field === 'nbCartons' || field === 'vrac') {
+        row[field] = value == null ? 0 : value;
+      }
+      if (options.forceFormat && value != null) {
+        input.value = step === 1 ? String(value) : String(Number(value.toFixed(3)));
+      } else if (options.forceFormat && value == null) {
+        input.value = '';
+      }
+    }
+
+    function updateRetoursRow(row) {
+      const nbCartons = row.nbCartons || 0;
+      const contenu = row.contenuCarton == null ? null : row.contenuCarton;
+      const vrac = row.vrac || 0;
+      const assigned = row.assigned || 0;
+      const retour = nbCartons * (contenu == null ? 0 : contenu) + vrac;
+      row.retourHU = retour;
+      row.consommeHU = Math.max(assigned - retour, 0);
+
+      const errors = {};
+      if (nbCartons > 0 && (contenu == null || contenu === 0)) {
+        errors.contenu = 'Contenu/carton requis';
+      }
+      if (retour > assigned + 1e-6) {
+        errors.over = 'Retour supérieur au assigné';
+      }
+      row.errors = errors;
+      row.isValid = Object.keys(errors).length === 0;
+      if (!row.isValid && row.validated) {
+        row.validated = false;
+        row.dom.checkbox.checked = false;
+      }
+
+      const titleMessages = [];
+      if (errors.contenu) titleMessages.push(errors.contenu);
+      if (errors.over) titleMessages.push(errors.over);
+      const tooltip = titleMessages.join(' • ');
+      row.dom.nbCartonsInput.title = tooltip;
+      row.dom.contenuInput.title = tooltip;
+      row.dom.vracInput.title = tooltip;
+
+      row.dom.nbCartonsInput.classList.toggle('invalid', !!errors.over);
+      row.dom.contenuInput.classList.toggle('invalid', !!errors.contenu || !!errors.over);
+      row.dom.vracInput.classList.toggle('invalid', !!errors.over);
+
+      row.dom.row.classList.toggle('row-error', !row.isValid);
+      row.dom.row.classList.toggle('validated', row.validated);
+      row.dom.checkbox.disabled = !row.isValid;
+      row.dom.checkbox.checked = row.validated;
+
+      row.dom.retourCell.textContent = formatNumber(row.retourHU);
+      row.dom.consommeCell.textContent = formatNumber(row.consommeHU);
+    }
+
+    function refreshRetoursSummary() {
+      const assigned = state.retours.reduce((sum, row) => sum + (row.assigned || 0), 0);
+      const retours = state.retours.reduce((sum, row) => sum + (row.retourHU || 0), 0);
+      const consomme = state.retours.reduce((sum, row) => sum + (row.consommeHU || 0), 0);
+      document.getElementById('sumAssigned').textContent = formatNumber(assigned);
+      document.getElementById('sumRetours').textContent = formatNumber(retours);
+      document.getElementById('sumConsomme').textContent = formatNumber(consomme);
+      const badge = document.getElementById('gapBadge');
+      if (assigned > 0) {
+        const diff = ((consomme - assigned) / assigned) * 100;
+        const rounded = Math.round(diff * 100) / 100;
+        badge.textContent = `Écart ${rounded.toFixed(2)} %`;
+        const abs = Math.abs(rounded);
+        badge.classList.remove('badge-green', 'badge-orange', 'badge-red');
+        if (abs <= 2) badge.classList.add('badge-green');
+        else if (abs <= 5) badge.classList.add('badge-orange');
+        else badge.classList.add('badge-red');
+      } else {
+        badge.textContent = 'Écart 0 %';
+        badge.classList.remove('badge-orange', 'badge-red');
+        badge.classList.add('badge-green');
+      }
+    }
+
+    function refreshRetoursData() {
+      if (!state.parsed) return;
+      if (!state.retours.length) {
+        prepareRetoursData();
+        buildRetoursTable();
+      }
+    }
+
+    function collectRetoursRows() {
+      return state.retours.map((row) => ({
+        po: row.po,
+        material: row.material,
+        hu: row.hu,
+        uom: row.uom,
+        retour_hu: row.retourHU,
+        consomme_hu: row.consommeHU,
+        nbCartons: row.nbCartons,
+        contenuCarton: row.contenuCarton,
+        vrac: row.vrac,
+        assigned: row.assigned,
+        validated: row.validated,
+      }));
+    }
+
+    function exportCSV(rows, type) {
+      if (!rows.length) {
+        alert('Aucune donnée disponible.');
+        return;
+      }
+      const header = type === 'return' ? ['po', 'material', 'hu', 'uom', 'retour_hu'] : ['po', 'material', 'hu', 'uom', 'consomme_hu'];
+      const csvRows = [header.join(',')];
+      rows.forEach((row) => {
+        const values = type === 'return'
+          ? [row.po, row.material, row.hu, row.uom, row.retour_hu]
+          : [row.po, row.material, row.hu, row.uom, row.consomme_hu];
+        csvRows.push(values.map((value) => {
+          if (value == null) return '';
+          const text = String(value);
+          return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        }).join(','));
+      });
+      const name = type === 'return' ? 'return_post.csv' : 'consumption_post.csv';
+      triggerDownload(csvRows.join('\n'), name, 'text/csv;charset=utf-8;');
+    }
+
+    function exportJournal(rows) {
+      if (!rows.length) {
+        alert('Aucune donnée disponible.');
+        return;
+      }
+      const journal = rows.map((row) => ({
+        timestampISO: new Date().toISOString(),
+        user: 'operator',
+        po: row.po,
+        material: row.material,
+        hu: row.hu,
+        uom: row.uom,
+        assigned: row.assigned,
+        nbCartons: row.nbCartons,
+        contenuCarton: row.contenuCarton,
+        vrac: row.vrac,
+        retourHU: row.retour_hu,
+        consommeHU: row.consomme_hu,
+        ligneValidee: row.validated,
+      }));
+      triggerDownload(JSON.stringify(journal, null, 2), 'journal.json', 'application/json');
+    }
+
+    function triggerDownload(content, fileName, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+
+    document.getElementById('exportReturns').addEventListener('click', () => {
+      const rows = collectRetoursRows();
+      exportCSV(rows, 'return');
+    });
+
+    document.getElementById('exportConsumption').addEventListener('click', () => {
+      const rows = collectRetoursRows();
+      exportCSV(rows, 'consumption');
+    });
+
+    document.getElementById('exportJournal').addEventListener('click', () => {
+      const rows = collectRetoursRows();
+      exportJournal(rows);
+    });
+  </script>
+</body>
+</html>
