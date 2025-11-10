@@ -109,6 +109,18 @@
       border-radius: 10px;
       min-height: 60px;
     }
+    .pill.toggle {
+      min-height: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .pill.toggle input {
+      accent-color: var(--accent);
+      transform: translateY(1px);
+    }
     .pill .label {
       display: block;
       font-size: 11px;
@@ -195,7 +207,10 @@
         <input id="fileInput" type="file" accept=".txt,.log,.lst,.out,.prn,.csv,.*" />
         <button id="btnDemo" type="button">Essai rapide</button>
         <button id="btnExport" type="button">Exporter CSV</button>
-        <span id="stats" class="tag">0 Materials • 0 HU</span>
+        <label class="pill toggle" for="toggleIssued">
+          <input id="toggleIssued" type="checkbox" /> Masquer les Issued
+        </label>
+        <span id="stats" class="tag">0 materials • 0 HU</span>
       </div>
       <div id="meta" class="meta-grid" aria-live="polite"></div>
     </section>
@@ -212,8 +227,6 @@
               <th>Assigned</th>
               <th>Issued</th>
               <th>Total A+I</th>
-              <th>Converted</th>
-              <th>% Deviation</th>
               <th>Handling Units</th>
             </tr>
           </thead>
@@ -229,6 +242,7 @@
 
   <script>
   const UOM_PATTERN = /(EA|PC|TH|KG|M|L|ML|G)\b/i;
+  let toggleIssued;
 
   const toNumber = (raw) => {
     if (raw == null) return null;
@@ -416,13 +430,18 @@
     return `<div class="pill"><span class="label">${label}</span><strong>${value}</strong></div>`;
   }
 
+  function getVisibleHUs(material) {
+    if (!toggleIssued || !Array.isArray(material.hus)) return material.hus || [];
+    return toggleIssued.checked ? material.hus.filter((hu) => hu.status !== 'Issued') : material.hus;
+  }
+
   function renderTable(materials) {
     const tbody = document.querySelector('#results tbody');
     tbody.innerHTML = '';
 
     for (const item of materials) {
       const row = document.createElement('tr');
-      const huCount = item.hus.length;
+      const visibleHUs = getVisibleHUs(item);
       row.innerHTML = `
         <td>${item.material || ''}</td>
         <td>${item.description || ''}</td>
@@ -431,21 +450,27 @@
         <td>${formatNumber(item.assigned)}</td>
         <td>${formatNumber(item.issued)}</td>
         <td>${formatNumber(item.total_ai)}</td>
-        <td>${formatNumber(item.converted)}</td>
-        <td>${item.pct_deviation == null ? '<span class="empty">—</span>' : formatNumber(item.pct_deviation)}</td>
-        <td>${huCount ? renderHU(item.hus, huCount) : '<span class="empty">Aucun HU</span>'}</td>
+        <td>${renderHU(visibleHUs)}</td>
       `;
       tbody.appendChild(row);
     }
   }
 
-  function renderHU(list, count) {
+  function renderHU(list) {
+    const items = Array.isArray(list) ? list : [];
+    const count = items.length;
     const details = document.createElement('details');
     const summary = document.createElement('summary');
     summary.textContent = `${count} HU`;
     details.appendChild(summary);
     const wrapper = document.createElement('div');
-    for (const hu of list) {
+    if (!count) {
+      const empty = document.createElement('div');
+      empty.className = 'hu-item empty';
+      empty.textContent = 'Aucun HU visible';
+      wrapper.appendChild(empty);
+    }
+    for (const hu of items) {
       const div = document.createElement('div');
       div.className = 'hu-item';
       div.innerHTML = `HU <strong>${hu.hu}</strong> • Batch ${hu.batch} • ${formatNumber(hu.qty)} ${hu.uom} • <span class="hu-status ${hu.status}">${hu.status}</span>`;
@@ -455,13 +480,14 @@
     return details.outerHTML;
   }
 
-  function updateStats(materials, totalHU) {
+  function updateStats(materials) {
     const label = document.getElementById('stats');
-    label.textContent = `${materials.length} Materials • ${totalHU} HU`;
+    const totalVisibleHU = materials.reduce((sum, mat) => sum + getVisibleHUs(mat).length, 0);
+    label.textContent = `${materials.length} materials • ${totalVisibleHU} HU`;
   }
 
   function toCSV(materials) {
-    const header = ['Material', 'Description', 'UoM', 'Planned', 'Assigned', 'Issued', 'Total_A_plus_I', 'Converted', 'Pct_Deviation', 'HU_Count'];
+    const header = ['material', 'description', 'uom', 'planned', 'assigned', 'issued', 'total_ai', 'hu_count'];
     const rows = [header.join(',')];
     for (const mat of materials) {
       const values = [
@@ -472,9 +498,7 @@
         mat.assigned,
         mat.issued,
         mat.total_ai,
-        mat.converted,
-        mat.pct_deviation == null ? '' : mat.pct_deviation,
-        mat.hus.length,
+        getVisibleHUs(mat).length,
       ].map((value) => {
         if (value == null) return '';
         const text = String(value);
@@ -485,11 +509,16 @@
     return rows.join('\n');
   }
 
+  function renderAll() {
+    if (!window.__parsed) return;
+    renderMeta(window.__parsed.meta);
+    renderTable(window.__parsed.materials);
+    updateStats(window.__parsed.materials);
+  }
+
   function render(parsed) {
-    renderMeta(parsed.meta);
-    renderTable(parsed.materials);
-    updateStats(parsed.materials, parsed.totalHU);
     window.__parsed = parsed;
+    renderAll();
   }
 
   const fileInput = document.getElementById('fileInput');
@@ -523,6 +552,13 @@
     const parsed = parseReport(DEMO_TEXT);
     render(parsed);
   });
+
+  toggleIssued = document.getElementById('toggleIssued');
+  if (toggleIssued) {
+    toggleIssued.addEventListener('change', () => {
+      renderAll();
+    });
+  }
 
   const DEMO_TEXT = `Material Reconciliation Report 2
 Process Order           1049013
