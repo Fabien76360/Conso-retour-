@@ -531,6 +531,12 @@
       Importe ton fichier YMLR, renseigne les restes, et laisse l’outil calculer tes consommations automatiquement.
     </p>
   </header>
+  <nav class="header-inner" style="max-width:1200px;margin:12px auto 0;display:flex;justify-content:center">
+    <div class="tab-bar">
+      <button class="active" data-target="extractor">EXTRACTION SAP</button>
+      <button data-target="retours">SAISIE RETOURS</button>
+    </div>
+  </nav>
   <main>
     <div class="main-inner">
       <section id="extractor">
@@ -941,6 +947,8 @@
       prepareRetoursData();
       buildRetoursTable();
       refreshRetoursSummary();
+      const retoursBtn = document.querySelector('.tab-bar button[data-target="retours"]');
+      if (retoursBtn) retoursBtn.click();
     }
 
     const fileInput = document.getElementById('fileInput');
@@ -970,10 +978,13 @@
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     });
 
-    document.getElementById('btnDemo').addEventListener('click', () => {
-      const parsed = parseReport(DEMO_TEXT);
-      render(parsed);
-    });
+    const demoBtn = document.getElementById('btnDemo');
+    if (demoBtn) {
+      demoBtn.addEventListener('click', () => {
+        const parsed = parseReport(DEMO_TEXT);
+        render(parsed);
+      });
+    }
 
     toggleIssued = document.getElementById('toggleIssued');
     if (toggleIssued) {
@@ -1010,20 +1021,16 @@ Material Summary
     tabButtons.forEach((button) => {
       button.addEventListener('click', () => {
         const target = button.getAttribute('data-target');
-        switchTab(target, button);
+        document.querySelectorAll('section').forEach((section) => {
+          section.hidden = section.id !== target;
+        });
+        tabButtons.forEach((btn) => btn.classList.toggle('active', btn === button));
+        if (target === 'retours') {
+          buildRetoursTable();
+          refreshRetoursSummary();
+        }
       });
     });
-
-    function switchTab(targetId, activeButton) {
-      document.querySelectorAll('section').forEach((section) => {
-        section.hidden = section.id !== targetId;
-      });
-      tabButtons.forEach((btn) => btn.classList.toggle('active', btn === activeButton));
-      if (targetId === 'retours') {
-        buildRetoursTable();
-        refreshRetoursSummary();
-      }
-    }
 
     /* Retours logic */
     function prepareRetoursData() {
