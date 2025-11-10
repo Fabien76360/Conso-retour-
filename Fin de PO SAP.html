@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fin de PO SAP – Materials &amp; Reconciliation (TXT)</title>
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --ink:#e5e7eb; --muted:#94a3b8; --accent:#22d3ee; }
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    header{padding:16px 20px;border-bottom:1px solid #1f2937;display:flex;gap:16px;align-items:center}
+    header h1{font-size:16px;margin:0;font-weight:600}
+    .hint{color:var(--muted);font-size:12px}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    .panel{background:var(--panel);border:1px solid #1f2937;border-radius:12px;padding:16px}
+    .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+    input[type=file]{background:#0b1220;border:1px dashed #334155;color:var(--ink);padding:10px;border-radius:10px}
+    button{appearance:none;border:1px solid #334155;background:#0b1220;color:var(--ink);padding:8px 12px;border-radius:10px;cursor:pointer}
+    button:hover{border-color:#475569}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px 10px;border-bottom:1px solid #1f2937;vertical-align:top}
+    th{background:#0b1220;text-align:left;font-weight:600;position:sticky;top:0}
+    .tag{display:inline-block;padding:2px 6px;border:1px solid #334155;border-radius:999px;color:var(--muted);font-size:12px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .k{color:var(--muted)}
+    .ok{color:#10b981}
+    .warn{color:#f59e0b}
+    details summary{cursor:pointer}
+    .small{font-size:12px;color:var(--muted)}
+    .pill{background:#0b1220;border:1px solid #334155;border-radius:8px;padding:6px 8px}
+    .mt8{margin-top:8px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Fin de PO SAP – Materials &amp; Reconciliation (TXT « Unconverted »)</h1>
+    <div class="hint">Charge un fichier SAP texte (rapport « Materials and Reconciliation Report 2 »). La liste apparaît.</div>
+  </header>
+
+  <div class="wrap">
+    <div class="panel">
+      <div class="row">
+        <input id="file" type="file" accept=".txt,.log,.lst,.out,.prn,.csv,.*" />
+        <button id="btnDemo" title="Parser un mini-exemple intégré">Essai rapide</button>
+        <button id="btnExport">Exporter CSV</button>
+        <span id="stats" class="tag">0 materials • 0 HU</span>
+      </div>
+      <div id="meta" class="grid mt8"></div>
+    </div>
+
+    <div class="panel mt8">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Material</th>
+            <th>Description</th>
+            <th>UoM</th>
+            <th>Planned</th>
+            <th>Assigned</th>
+            <th>Issued</th>
+            <th>Total A+I</th>
+            <th>Converted</th>
+            <th>% Dev</th>
+            <th>HU</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <p class="small mt8">Règles : % Deviation à null si « 99,999,999.0 ». Décimales normalisées. Jointure HU ⇄ Material par proximité de bloc. En-têtes/pieds de page ignorés.</p>
+  </div>
+
+<script>
+const toNum = (s) => {
+  if (s == null) return null;
+  let x = String(s).trim();
+  if (!x) return null;
+  const neg = /-$/.test(x);
+  x = x.replace(/-/g,'').replace(/\s+/g,'').replace(/,/g,'');
+  const v = Number(x);
+  if (Number.isNaN(v)) return null;
+  return neg ? -v : v;
+};
+
+const cleanLine = (s) => s.replace(/\u00A0/g,' ').replace(/\s+$/,'');
+
+function parseReport(txt){
+  const lines = txt.split(/\r?\n/).map(cleanLine).filter(Boolean);
+  const skipPat = /^(ASPEN\s+.*Page\s*:|Printed on\s*:|Report Id\s*:|Variant Id\s*:|Storage Location\s*:|\*+END OF REPORT\*+)/;
+  const meta = {po:null, output:null, output_desc:null, output_batch:null, planned:null, actual:null, yield:null};
+
+  for(let i=0;i<lines.length;i++){
+    const L = lines[i];
+    if (/^Process Order\s+/.test(L)) { meta.po = L.split(/\s+/).pop(); }
+    if (/^Output Material\s+/.test(L)) {
+      const m = L.match(/^Output Material\s+(\d+)\s+(.*)$/);
+      if (m){ meta.output = m[1]; meta.output_desc = m[2].trim(); }
+    }
+    if (/^Output Batch Number\s+/.test(L)) meta.output_batch = L.replace(/^Output Batch Number\s+/, '').trim();
+    if (/^Planned Quantity\s+/.test(L)) {
+      const m=L.match(/Planned Quantity\s+([\d.,]+)\s+(\w+)/);
+      if(m){ meta.planned = {qty:toNum(m[1]), uom:m[2]}; }
+    }
+    if (/^Actual Quantity\s+/.test(L)) {
+      const m=L.match(/Actual Quantity\s+([\d.,]+)\s+(\w+)/);
+      if(m){ meta.actual = {qty:toNum(m[1]), uom:m[2]}; }
+    }
+    if (/^Yield\s+/.test(L)){
+      const m = L.match(/Yield\s+([\d.,-]+)\s*%/);
+      if(m){ meta.yield = toNum(m[1]); }
+    }
+  }
+
+  const body = lines.filter(l => !skipPat.test(l));
+  let i=0; const materials=[]; let totalHU=0;
+  const isMatRow = (s)=>/^\|\d{5,}/.test(s) && !/Handling Unit/.test(s);
+  const isHUHeader = (s)=>/\|\s+Handling Unit\s+Batch\s+HU Quantity\s+Status/i.test(s);
+  const isHUData = (s)=>/^\|\s+\d{8,}/.test(s);
+
+  while(i<body.length){
+    let line = body[i];
+    if (isMatRow(line)){
+      let mat = {material:null, description:"", uom:null, planned:null, assigned:null, issued:null, total_ai:null, converted:null, pct_deviation:null, hus:[]};
+
+      const mCode = line.match(/^\|(\d{5,})\s+(.*)$/);
+      if(mCode){
+        mat.material = mCode[1];
+        const tail = mCode[2];
+        const chunks = tail.split(/\s{2,}/).filter(Boolean);
+        mat.description = (chunks[0]||"").trim();
+        const nums=[]; const uoms=[];
+        for(let ck=1; ck<chunks.length; ck++){
+          const c = chunks[ck];
+          const m = c.match(/([\d.,]+)\s*(EA|PC|TH|KG|M)\b/i);
+          if(m){ nums.push(toNum(m[1])); uoms.push(m[2].toUpperCase()); }
+        }
+        if(nums.length>=4){
+          [mat.planned, mat.assigned, mat.issued, mat.total_ai] = nums.slice(0,4);
+          if(uoms.length){
+            mat.uom = uoms.sort((a,b)=>uoms.filter(x=>x===b).length - uoms.filter(x=>x===a).length)[0];
+          }
+        }
+      }
+      i++;
+
+      if (i<body.length && isHUHeader(body[i])){ i++; }
+      while(i<body.length && isHUData(body[i])){
+        const L = body[i].replace(/^\|/,'');
+        const mm = L.match(/\s*(\d{8,})\s+(\w+)\s+([\d.,]+)\s+(EA|PC|TH|KG|M)\s+(Assigned|Issued)/i);
+        if(mm){
+          mat.hus.push({hu:mm[1], batch:mm[2], qty:toNum(mm[3]), uom:mm[4].toUpperCase(), status:mm[5]});
+          totalHU++;
+        }
+        i++;
+      }
+
+      if (i<body.length && isMatRow(body[i])){
+        const sum = body[i];
+        const toks = sum.split(/\s{2,}/).filter(Boolean);
+        const nums = toks.slice(1).map(x=>toNum((x||'').replace(/\s*%$/,''))).filter(v=>v!==null);
+        if(nums.length>=5){
+          mat.planned  = mat.planned  ?? nums[0];
+          mat.assigned = mat.assigned ?? nums[1];
+          mat.issued   = mat.issued   ?? nums[2];
+          mat.total_ai = mat.total_ai ?? nums[3];
+          mat.converted = nums[4];
+        }
+        const pm = sum.match(/([\d.,-]+)\s*%\s*\|?\s*$/);
+        if(pm){
+          const dv = pm[1].trim();
+          mat.pct_deviation = (dv === '99,999,999.0') ? null : toNum(dv);
+        }
+        i++;
+      }
+
+      materials.push(mat);
+      continue;
+    }
+    i++;
+  }
+
+  return {meta, materials, totalHU};
+}
+
+function render({meta, materials, totalHU}){
+  const m = document.getElementById('meta');
+  const metaBits = [];
+  if(meta.po) metaBits.push(`<div class="pill"><span class="k">PO</span><br>${meta.po}</div>`);
+  if(meta.output) metaBits.push(`<div class="pill"><span class="k">Output</span><br>${meta.output} – ${meta.output_desc||''}</div>`);
+  if(meta.output_batch) metaBits.push(`<div class="pill"><span class="k">Batch</span><br>${meta.output_batch}</div>`);
+  if(meta.planned) metaBits.push(`<div class="pill"><span class="k">Planned</span><br>${meta.planned.qty} ${meta.planned.uom}</div>`);
+  if(meta.actual) metaBits.push(`<div class="pill"><span class="k">Actual</span><br>${meta.actual.qty} ${meta.actual.uom}</div>`);
+  if(meta.yield!=null) metaBits.push(`<div class="pill"><span class="k">Yield</span><br>${meta.yield}%</div>`);
+  m.innerHTML = metaBits.join('');
+
+  document.getElementById('stats').textContent = `${materials.length} materials • ${totalHU} HU`;
+
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = '';
+  for(const row of materials){
+    const tr = document.createElement('tr');
+    const huCount = row.hus?.length || 0;
+    tr.innerHTML = `
+      <td>${row.material||''}</td>
+      <td>${row.description||''}</td>
+      <td>${row.uom||''}</td>
+      <td>${row.planned??''}</td>
+      <td>${row.assigned??''}</td>
+      <td>${row.issued??''}</td>
+      <td>${row.total_ai??''}</td>
+      <td>${row.converted??''}</td>
+      <td>${row.pct_deviation==null?'<span class="k">—</span>':row.pct_deviation}</td>
+      <td>${huCount? `<details><summary>${huCount} HU</summary>${renderHU(row.hus)}</details>`: '<span class="k">0</span>'}</td>
+    `;
+    tb.appendChild(tr);
+  }
+}
+
+function renderHU(list){
+  if(!list || !list.length) return '';
+  const rows = list.map(h=>`<div class="small">HU <b>${h.hu}</b> • Batch ${h.batch} • ${h.qty} ${h.uom} • <span class="${h.status==='Issued'?'warn':'ok'}">${h.status}</span></div>`);
+  return `<div class="mt8">${rows.join('')}</div>`;
+}
+
+function toCSV(rows){
+  const head = ['material','description','uom','planned','assigned','issued','total_ai','converted','pct_deviation','hu_count'];
+  const lines = [head.join(',')];
+  for(const r of rows){
+    const vals = [r.material,r.description,r.uom,r.planned,r.assigned,r.issued,r.total_ai,r.converted,(r.pct_deviation??''),(r.hus?r.hus.length:0)]
+      .map(v=>typeof v==='string' && /[",\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : (v??''));
+    lines.push(vals.join(','));
+  }
+  return lines.join('\n');
+}
+
+document.getElementById('file').addEventListener('change', async (e)=>{
+  const f = e.target.files?.[0];
+  if(!f) return;
+  const txt = await f.text();
+  const parsed = parseReport(txt);
+  render(parsed);
+  window.__parsed = parsed;
+});
+
+document.getElementById('btnExport').onclick = () => {
+  if(!window.__parsed){ alert('Aucune donnée'); return; }
+  const csv = toCSV(window.__parsed.materials);
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `fin_po_${(window.__parsed.meta.po||'po')}.csv`;
+  a.click();
+};
+
+const demoTxt = `Material Reconciliation Report 2
+Process Order           1049013
+Output Material         46174               ARIXTRA 2.5MG 10SPR BE
+Output Batch Number     0238
+Planned Quantity              2,500 EA
+Actual Quantity               1,350 EA
+Yield                          54.0 %
+
+Material Summary
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|36835                                 PVC 400 MICRONS LAIZE 333 RL            89.500  KG             326  KG               0  KG             326  KG                                                                                               |
+|                  Handling Unit                                     Batch          HU Quantity         Status   Packing            Document   Issue Date Operator  Reviewer       Date        Comment                                              |
+|                  136631621622044335                                2025085131               326  KG   Assigned NDB-PAL-BOI-EU-P12                                                                                                                 |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|36835                                 PVC 400 MICRONS LAIZE 333 RL            89.500                 326                   0                 326            48.330      99,999,999.0  %                                                            |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|324480                                ETUI ARIXTRA 2.5MG 10SPR 3H BE           2.500  TH           4.400  TH           0.274  TH           4.674  TH                                                                                               |
+|                  Handling Unit                                     Batch          HU Quantity         Status   Packing            Document   Issue Date Operator  Reviewer       Date        Comment                                              |
+|                  136631621622719820                                2025307430             4.400  TH   Assigned NDB-PAL-BOI-EU-P12                                                                                                                 |
+|                  36631621622802983                                 2025277176             0.274  TH   Issued   NDB-CAR-CRF-FR-KA1 4900871689 05.11.2025                                                                                           |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|324480                                ETUI ARIXTRA 2.5MG 10SPR 3H BE           2.500               4.400               0.274               4.674             1.350              79.8- %                                                            |
+`;
+
+document.getElementById('btnDemo').onclick = ()=>{
+  const parsed = parseReport(demoTxt);
+  render(parsed);
+  window.__parsed = parsed;
+};
+</script>
+</body>
+</html>
