@@ -302,20 +302,6 @@
     .hu-item .Issued { color: var(--warning); }
     .hu-item .empty { color: var(--muted); }
 
-    body.op-big {
-      font-size: 16px;
-    }
-
-    body.op-big table th,
-    body.op-big table td {
-      padding: 14px 16px;
-      font-size: 16px;
-    }
-
-    body.op-big details summary {
-      font-size: 16px;
-    }
-
     /* Retours section */
     .muted {
       color: var(--muted);
@@ -558,7 +544,6 @@
             <button id="btnDemo" type="button">Essai rapide</button>
             <button id="btnExport" type="button">Exporter CSV</button>
             <label class="pill toggle"><input type="checkbox" id="toggleIssued" /> Masquer les Issued</label>
-            <label class="pill toggle"><input type="checkbox" id="modeOp" /> Mode opérateur</label>
             <span id="stats" class="tag">0 materials • 0 HU</span>
           </div>
           <div id="meta" class="meta-grid"></div>
@@ -626,7 +611,6 @@
     };
 
     let toggleIssued = null;
-    let modeOpToggle = null;
 
     const toNum = (input) => {
       if (input == null) return null;
@@ -847,23 +831,10 @@
       },
     ];
 
-    const OPERATOR_COLUMNS = [
-      DEFAULT_COLUMNS[0],
-      DEFAULT_COLUMNS[1],
-      DEFAULT_COLUMNS[4],
-      DEFAULT_COLUMNS[5],
-      DEFAULT_COLUMNS[6],
-      DEFAULT_COLUMNS[7],
-    ];
-
-    function isModeOperator() {
-      return !!(modeOpToggle && modeOpToggle.checked);
-    }
-
     function renderTable(entries) {
       const headRow = document.getElementById('tableHead');
       const tbody = document.getElementById('tableBody');
-      const columns = isModeOperator() ? OPERATOR_COLUMNS : DEFAULT_COLUMNS;
+      const columns = DEFAULT_COLUMNS;
       headRow.innerHTML = columns.map((col) => `<th class="${col.className || ''}">${col.label}</th>`).join('');
       tbody.innerHTML = '';
 
@@ -943,11 +914,8 @@
         material: mat,
         visibleHUs: getVisibleHUs(mat).slice(),
       }));
-      const operatorMode = isModeOperator();
-      document.body.classList.toggle('op-big', operatorMode);
       if (toggleIssued) {
-        if (operatorMode && !toggleIssued.checked) toggleIssued.checked = true;
-        toggleIssued.disabled = operatorMode;
+        toggleIssued.disabled = false;
       }
       renderMeta(state.parsed.meta);
       renderTable(entries);
@@ -1000,19 +968,6 @@
     toggleIssued = document.getElementById('toggleIssued');
     if (toggleIssued) {
       toggleIssued.addEventListener('change', () => {
-        if (isModeOperator() && !toggleIssued.checked) {
-          toggleIssued.checked = true;
-        }
-        renderAll();
-      });
-    }
-
-    modeOpToggle = document.getElementById('modeOp');
-    if (modeOpToggle) {
-      modeOpToggle.addEventListener('change', () => {
-        if (modeOpToggle.checked && toggleIssued && !toggleIssued.checked) {
-          toggleIssued.checked = true;
-        }
         renderAll();
       });
     }

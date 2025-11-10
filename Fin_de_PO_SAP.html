@@ -121,10 +121,6 @@
       accent-color: var(--accent);
       transform: translateY(1px);
     }
-    .pill.toggle input:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
     .pill .label {
       display: block;
       font-size: 11px;
@@ -224,24 +220,6 @@
       line-height: 1.6;
     }
     code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
-    body.op-big .controls {
-      font-size: 16px;
-      gap: 16px;
-    }
-    body.op-big button,
-    body.op-big input[type="file"] {
-      font-size: 16px;
-      padding: 12px 16px;
-    }
-    body.op-big table { font-size: 16px; }
-    body.op-big th,
-    body.op-big td {
-      padding: 14px 16px;
-    }
-    body.op-big details summary {
-      font-size: 16px;
-      padding: 6px 0;
-    }
     @media (max-width: 720px) {
       th, td { padding: 8px; }
       .controls { gap: 8px; }
@@ -264,9 +242,6 @@
         <button id="btnExport" type="button">Exporter CSV</button>
         <label class="pill toggle" for="toggleIssued">
           <input id="toggleIssued" type="checkbox" /> Masquer les Issued
-        </label>
-        <label class="pill toggle" for="modeOp">
-          <input id="modeOp" type="checkbox" /> Mode opérateur
         </label>
         <span id="stats" class="tag">0 materials • 0 HU</span>
       </div>
@@ -292,7 +267,6 @@
   <script>
   const UOM_PATTERN = /(EA|PC|TH|KG|M|L|ML|G)\b/i;
   let toggleIssued;
-  let modeOpToggle;
 
   const toNumber = (raw) => {
     if (raw == null) return null;
@@ -537,23 +511,10 @@
     },
   ];
 
-  const OPERATOR_COLUMNS = [
-    DEFAULT_COLUMNS[0],
-    DEFAULT_COLUMNS[1],
-    DEFAULT_COLUMNS[4],
-    DEFAULT_COLUMNS[5],
-    DEFAULT_COLUMNS[6],
-    DEFAULT_COLUMNS[7],
-  ];
-
-  function isModeOperator() {
-    return !!(modeOpToggle && modeOpToggle.checked);
-  }
-
   function renderTable(entries) {
     const headRow = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
-    const columns = isModeOperator() ? OPERATOR_COLUMNS : DEFAULT_COLUMNS;
+    const columns = DEFAULT_COLUMNS;
     headRow.innerHTML = columns.map((col) => `<th class="${col.className || ''}">${col.label}</th>`).join('');
     tbody.innerHTML = '';
 
@@ -633,11 +594,8 @@
       material: mat,
       visibleHUs: getVisibleHUs(mat).slice(),
     }));
-    const operatorMode = isModeOperator();
-    document.body.classList.toggle('op-big', operatorMode);
     if (toggleIssued) {
-      if (operatorMode && !toggleIssued.checked) toggleIssued.checked = true;
-      toggleIssued.disabled = operatorMode;
+      toggleIssued.disabled = false;
     }
     renderMeta(window.__parsed.meta);
     renderTable(entries);
@@ -684,19 +642,6 @@
   toggleIssued = document.getElementById('toggleIssued');
   if (toggleIssued) {
     toggleIssued.addEventListener('change', () => {
-      if (isModeOperator() && !toggleIssued.checked) {
-        toggleIssued.checked = true;
-      }
-      renderAll();
-    });
-  }
-
-  modeOpToggle = document.getElementById('modeOp');
-  if (modeOpToggle) {
-    modeOpToggle.addEventListener('change', () => {
-      if (modeOpToggle.checked && toggleIssued && !toggleIssued.checked) {
-        toggleIssued.checked = true;
-      }
       renderAll();
     });
   }
