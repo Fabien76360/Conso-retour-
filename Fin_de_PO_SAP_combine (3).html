@@ -523,17 +523,13 @@
   </style>
 </head>
 <body>
-  <header>
-    <div class="header-inner">
-      <div>
-        <h1>Extractor Fin de PO – SAP TXT</h1>
-        <p>Importe un texte SAP « Materials and Reconciliation Report 2 », visualise les matériaux et prépare la saisie des retours HU en fin de process.</p>
-      </div>
-      <div class="tab-bar">
-        <button type="button" class="active" data-target="extractor">Extraction SAP</button>
-        <button type="button" data-target="retours">Saisie retours</button>
-      </div>
-    </div>
+  <header class="text-center py-6 bg-gradient-to-r from-slate-100 to-blue-50 rounded-b-2xl shadow">
+    <h1 class="text-3xl font-bold text-blue-700 tracking-tight">
+      Fin de PO – Assistant SAP
+    </h1>
+    <p class="text-gray-600 mt-2">
+      Importe ton fichier YMLR, renseigne les restes, et laisse l’outil calculer tes consommations automatiquement.
+    </p>
   </header>
   <main>
     <div class="main-inner">
@@ -541,7 +537,6 @@
         <div class="panel">
           <div class="controls">
             <input id="fileInput" type="file" accept=".txt,.log,.lst,.out,.prn,.csv,.*" />
-            <button id="btnDemo" type="button">Essai rapide</button>
             <button id="btnExport" type="button">Exporter CSV</button>
             <label class="pill toggle"><input type="checkbox" id="toggleIssued" /> Masquer les Issued</label>
             <span id="stats" class="tag">0 materials • 0 HU</span>
