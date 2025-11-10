@@ -674,14 +674,16 @@
           const codeMatch = line.match(/^\s*\|(\d{5,})\s+(.*)$/);
           if (codeMatch) {
             const materialCode = codeMatch[1];
-            const tail = codeMatch[2];
+            const tailRaw = codeMatch[2];
+            const tail = tailRaw.replace(/\|\s*$/, '');
+            const tailNoDeviation = tail.replace(/\s+[\d.,-]+\s*%$/, '');
             const chunks = tail.split(/\s{2,}/).filter(Boolean);
 
             let columnsFromEnd = null;
             {
               // ... [PLANNED qty UOM] [ASSIGNED qty UOM] [ISSUED qty UOM] [TOTAL A+I qty UOM] (fin de ligne)
-              const endRe = /([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s*$/i;
-              const mEnd = tail.match(endRe);
+              const endRe = /([\d.,\s-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+([\d.,\s-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+([\d.,\s-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+([\d.,\s-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s*$/i;
+              const mEnd = tailNoDeviation.match(endRe);
               if (mEnd) {
                 columnsFromEnd = {
                   nums: [mEnd[1], mEnd[3], mEnd[5], mEnd[7]].map((x) => toNum(x)),
@@ -706,12 +708,12 @@
               materials.push(material);
             }
 
+            let descIdx = 0;
             if (chunks.length) {
-              let descIdx = 0;
-              if (/^\d{3,}$/.test(chunks[0]) && (chunks[1] || '').length > 0) {
-                descIdx = 1;
+              while (descIdx < chunks.length && /^\d{3,}$/.test(chunks[descIdx])) {
+                descIdx += 1;
               }
-              if (!material.description && chunks[descIdx]) {
+              if (!material.description && descIdx < chunks.length) {
                 material.description = chunks[descIdx].trim();
               }
             }
@@ -723,14 +725,14 @@
               numbers = columnsFromEnd.nums;
               uoms = columnsFromEnd.uoms;
             } else {
-              let startIdx = 1;
-              if (chunks.length >= 5) {
-                const maybeUom = (chunks[1] || '').trim();
+              let startIdx = Math.max(descIdx + 1, 1);
+              if (chunks.length >= descIdx + 4) {
+                const maybeUom = (chunks[descIdx + 1] || '').trim();
                 const uomProbe = /^(EA|PC|TH|KG|M|L|ML|G)$/i.test(maybeUom);
-                const n1 = toNum((chunks[2] || '').replace(/\s*%$/, ''));
-                const n2 = toNum((chunks[3] || '').replace(/\s*%$/, ''));
+                const n1 = toNum((chunks[descIdx + 2] || '').replace(/\s*%$/, ''));
+                const n2 = toNum((chunks[descIdx + 3] || '').replace(/\s*%$/, ''));
                 if (uomProbe && n1 != null && n1 < 5 && n2 != null && n2 > n1 * 5) {
-                  startIdx = 3; // saute "UoM + dosage"
+                  startIdx = descIdx + 3; // saute "UoM + dosage"
                 }
               }
               for (let i = startIdx; i < chunks.length; i += 1) {
