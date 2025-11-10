@@ -281,7 +281,10 @@
     return isNegative ? -num : num;
   };
 
-  const cleanLine = (line) => line.replace(/[\u00A0\u202F]/g, ' ').replace(/\s+$/g, '');
+  const cleanLine = (line) =>
+    line
+      .replace(/[\u00A0\u202F]/g, ' ')
+      .replace(/^\s+|\s+$/g, '');
 
   const formatNumber = (value) => {
     if (value == null || Number.isNaN(value)) return '';
@@ -321,117 +324,114 @@
   }
 
   function parseReport(rawText) {
-    const rawLines = rawText.split(/\r?\n/).map(cleanLine);
-    const lines = rawLines.filter(Boolean);
+    const lines = rawText.split(/\r?\n/);
     const skipPattern = /^(ASPEN\s+.*Page\s*:|Printed on\s*:|Report Id\s*:|Variant Id\s*:|Storage Location\s*:|\*+END OF REPORT\*+)/i;
-    const filtered = lines.filter((line) => !skipPattern.test(line));
+    const body = lines
+      .map(cleanLine)
+      .filter((line) => line && !skipPattern.test(line));
 
-    const meta = parseMeta(filtered);
+    const meta = parseMeta(body);
     const materials = [];
     let totalHU = 0;
 
-    const isMaterialLine = (line) => /^\|\d{5,}\s+/.test(line) && !/Handling Unit/i.test(line);
-    const containsUOM = (line) => UOM_PATTERN.test(line);
+    const isMaterialRow = (line) => /^\s*\|\d{5,}\b/.test(line) && !/Handling Unit/i.test(line);
 
-    for (let i = 0; i < filtered.length; i++) {
-      const line = filtered[i];
-      if (!isMaterialLine(line)) continue;
+    let index = 0;
+    while (index < body.length) {
+      const line = body[index];
 
-      const materialMatch = line.match(/^\|(\d{5,})\s+(.*)$/);
-      if (!materialMatch) continue;
+      if (isMaterialRow(line)) {
+        const codeMatch = line.match(/^\s*\|(\d{5,})\s+(.*)$/);
+        if (codeMatch) {
+          const materialCode = codeMatch[1];
+          const tail = codeMatch[2];
+          const chunks = tail.split(/\s{2,}/).filter(Boolean);
 
-      const materialCode = materialMatch[1];
-      const rest = materialMatch[2].replace(/\|$/, '').trim();
-      const segments = rest.split(/\s{2,}(?=\S)/).filter(Boolean);
-      if (!segments.length) continue;
-
-      const description = segments.shift().trim();
-      const values = [];
-      const detectedUoms = [];
-
-      for (const segment of segments) {
-        const measure = segment.trim();
-        const match = measure.match(/([\d.,\s-]+)/);
-        if (!match) continue;
-        const numeric = toNumber(match[1]);
-        values.push(numeric);
-        const uomMatch = measure.match(UOM_PATTERN);
-        if (uomMatch) detectedUoms.push(uomMatch[1].toUpperCase());
-      }
-
-      const mat = {
-        material: materialCode,
-        description,
-        uom: detectedUoms.length ? mostCommon(detectedUoms) : null,
-        planned: values[0] ?? null,
-        assigned: values[1] ?? null,
-        issued: values[2] ?? null,
-        total_ai: values[3] ?? null,
-        converted: null,
-        pct_deviation: null,
-        hus: [],
-      };
-
-      let cursor = i + 1;
-
-      // Optional Handling Unit header
-      if (cursor < filtered.length && /Handling Unit/i.test(filtered[cursor])) {
-        cursor++;
-        while (cursor < filtered.length && /^\|\s*\d{6,}/.test(filtered[cursor])) {
-          const huLine = filtered[cursor].replace(/^\|/, '').replace(/\|$/, '').trim();
-          const huMatch = huLine.match(/^(\d{8,})\s+(\S+)\s+([\d.,\s-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b\s+(\w+)/i);
-          if (huMatch) {
-            const hu = {
-              hu: huMatch[1],
-              batch: huMatch[2],
-              qty: toNumber(huMatch[3]),
-              uom: huMatch[4].toUpperCase(),
-              status: capitalize(huMatch[5]),
+          let material = materials.find((m) => m.material === materialCode);
+          if (!material) {
+            material = {
+              material: materialCode,
+              description: '',
+              planned: null,
+              assigned: null,
+              issued: null,
+              total_ai: null,
+              uom: null,
+              pct_deviation: null,
+              hus: [],
             };
-            mat.hus.push(hu);
-            totalHU++;
+            materials.push(material);
           }
-          cursor++;
+
+          if (chunks.length) {
+            const descriptor = chunks[0].trim();
+            if (!material.description && descriptor) {
+              material.description = descriptor;
+            }
+          }
+
+          const numbers = [];
+          const uoms = [];
+          for (let i = 1; i < chunks.length; i++) {
+            const piece = chunks[i];
+            const match = piece.match(/([\d.,-]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
+            if (match) {
+              const numeric = toNumber(match[1]);
+              if (numeric != null) numbers.push(numeric);
+              uoms.push(match[2].toUpperCase());
+            } else {
+              const numeric = toNumber(piece.replace(/\s*%$/, ''));
+              if (numeric != null) numbers.push(numeric);
+            }
+          }
+
+          const fields = ['planned', 'assigned', 'issued', 'total_ai'];
+          numbers.slice(0, fields.length).forEach((value, idx) => {
+            const key = fields[idx];
+            if (value != null && material[key] == null) {
+              material[key] = value;
+            }
+          });
+
+          if (uoms.length) {
+            material.uom = uoms
+              .slice()
+              .sort((a, b) => uoms.filter((x) => x === b).length - uoms.filter((x) => x === a).length)[0];
+          }
+
+          const deviationMatch = line.match(/([\d.,-]+)\s*%\s*\|?\s*$/);
+          if (deviationMatch) {
+            const deviationRaw = deviationMatch[1];
+            material.pct_deviation = deviationRaw === '99,999,999.0' ? null : toNumber(deviationRaw);
+          }
+
+          let lookahead = index + 1;
+          if (lookahead < body.length && /\|\s+Handling Unit/i.test(body[lookahead])) {
+            lookahead++;
+            while (lookahead < body.length && /^\s*\|\s*\d{6,}/.test(body[lookahead])) {
+              const huLine = body[lookahead].replace(/^\s*\|/, '').replace(/\|$/, '').trim();
+              const huMatch = huLine.match(/^(\d{8,})\s+(\S+)\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b\s+(\w+)/i);
+              if (huMatch) {
+                material.hus.push({
+                  hu: huMatch[1],
+                  batch: huMatch[2],
+                  qty: toNumber(huMatch[3]),
+                  uom: huMatch[4].toUpperCase(),
+                  status: capitalize(huMatch[5]),
+                });
+                totalHU++;
+              }
+              lookahead++;
+            }
+            index = lookahead - 1;
+          }
         }
       }
 
-      // Summary line (same material code without UoM columns)
-      if (cursor < filtered.length) {
-        const summaryLine = filtered[cursor];
-        if (summaryLine.startsWith(`|${materialCode}`) && !containsUOM(summaryLine.slice(materialCode.length + 1))) {
-          const summaryRest = summaryLine
-            .replace(/^\|\d{5,}\s+/, '')
-            .replace(/\|$/, '')
-            .trim();
-          const summarySegs = summaryRest.split(/\s{2,}(?=\S)/).filter(Boolean);
-          if (summarySegs.length) summarySegs.shift();
-          const numbers = summarySegs.map((token) => toNumber(token.replace(/\s*%$/, '')));
-          if (numbers.length >= 1 && mat.planned == null) mat.planned = numbers[0];
-          if (numbers.length >= 2 && mat.assigned == null) mat.assigned = numbers[1];
-          if (numbers.length >= 3 && mat.issued == null) mat.issued = numbers[2];
-          if (numbers.length >= 4 && mat.total_ai == null) mat.total_ai = numbers[3];
-          if (numbers.length >= 5) mat.converted = numbers[4];
-
-          const pctMatch = summaryRest.match(/([\d.,\s-]+)\s*%\s*$/);
-          if (pctMatch) {
-            const pctRaw = pctMatch[1].trim();
-            mat.pct_deviation = pctRaw === '99,999,999.0' ? null : toNumber(pctRaw);
-          }
-          cursor++;
-        }
-      }
-
-      materials.push(mat);
-      i = cursor - 1;
+      index++;
     }
 
     return { meta, materials, totalHU };
-  }
-
-  function mostCommon(list) {
-    return list
-      .slice()
-      .sort((a, b) => list.filter((x) => x === b).length - list.filter((x) => x === a).length)[0];
   }
 
   function capitalize(text) {

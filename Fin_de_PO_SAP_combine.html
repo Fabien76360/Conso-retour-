@@ -623,14 +623,21 @@
       return isNeg ? -numeric : numeric;
     };
 
-    const cleanLine = (line) => line.replace(/[\u00A0\u202F]/g, ' ').replace(/\s+$/, '');
+    const cleanLine = (line) =>
+      line
+        .replace(/[\u00A0\u202F]/g, ' ')
+        .replace(/^\s+|\s+$/g, '');
 
     function parseReport(text) {
-      const lines = text.split(/\r?\n/).map(cleanLine).filter(Boolean);
-      const skipPattern = /^(ASPEN\s+.*Page\s*:|Printed on\s*:|Report Id\s*:|Variant Id\s*:|Storage Location\s*:|\*+END OF REPORT\*+)/;
+      const lines = text.split(/\r?\n/);
+      const skipPattern = /^(ASPEN\s+.*Page\s*:|Printed on\s*:|Report Id\s*:|Variant Id\s*:|Storage Location\s*:|\*+END OF REPORT\*+)/i;
+      const body = lines
+        .map(cleanLine)
+        .filter((line) => line && !skipPattern.test(line));
+
       const meta = { po: null, output: null, output_desc: null, output_batch: null, planned: null, actual: null, yield: null };
 
-      for (const line of lines) {
+      for (const line of body) {
         if (/^Process Order\s+/.test(line)) meta.po = line.split(/\s+/).pop();
         if (/^Output Material\s+/.test(line)) {
           const match = line.match(/^Output Material\s+(\d+)\s+(.*)$/);
@@ -641,12 +648,12 @@
         }
         if (/^Output Batch Number\s+/.test(line)) meta.output_batch = line.replace(/^Output Batch Number\s+/, '').trim();
         if (/^Planned Quantity\s+/.test(line)) {
-          const match = line.match(/Planned Quantity\s+([\d.,]+)\s+(\w+)/);
-          if (match) meta.planned = { qty: toNum(match[1]), uom: match[2] };
+          const match = line.match(/Planned Quantity\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b/i);
+          if (match) meta.planned = { qty: toNum(match[1]), uom: match[2].toUpperCase() };
         }
         if (/^Actual Quantity\s+/.test(line)) {
-          const match = line.match(/Actual Quantity\s+([\d.,]+)\s+(\w+)/);
-          if (match) meta.actual = { qty: toNum(match[1]), uom: match[2] };
+          const match = line.match(/Actual Quantity\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b/i);
+          if (match) meta.actual = { qty: toNum(match[1]), uom: match[2].toUpperCase() };
         }
         if (/^Yield\s+/.test(line)) {
           const match = line.match(/Yield\s+([\d.,-]+)\s*%/);
@@ -654,94 +661,102 @@
         }
       }
 
-      const body = lines.filter((line) => !skipPattern.test(line));
       const materials = [];
       let totalHU = 0;
-      let index = 0;
-      const isMaterialRow = (line) => /^\|\d{5,}/.test(line) && !/Handling Unit/.test(line);
-      const isHUHeader = (line) => /\|\s+Handling Unit\s+Batch\s+HU Quantity\s+Status/i.test(line);
-      const isHUData = (line) => /^\|\s+\d{8,}/.test(line);
+      const isMaterialRow = (line) => /^\s*\|\d{5,}\b/.test(line) && !/Handling Unit/i.test(line);
 
+      let index = 0;
       while (index < body.length) {
         const line = body[index];
-        if (isMaterialRow(line)) {
-          const material = {
-            material: null,
-            description: '',
-            uom: null,
-            planned: null,
-            assigned: null,
-            issued: null,
-            total_ai: null,
-            converted: null,
-            pct_deviation: null,
-            hus: [],
-          };
 
-          const codeMatch = line.match(/^\|(\d{5,})\s+(.*)$/);
+        if (isMaterialRow(line)) {
+          const codeMatch = line.match(/^\s*\|(\d{5,})\s+(.*)$/);
           if (codeMatch) {
-            material.material = codeMatch[1];
+            const materialCode = codeMatch[1];
             const tail = codeMatch[2];
             const chunks = tail.split(/\s{2,}/).filter(Boolean);
-            material.description = (chunks[0] || '').trim();
+
+            let material = materials.find((m) => m.material === materialCode);
+            if (!material) {
+              material = {
+                material: materialCode,
+                description: '',
+                uom: null,
+                planned: null,
+                assigned: null,
+                issued: null,
+                total_ai: null,
+                pct_deviation: null,
+                hus: [],
+              };
+              materials.push(material);
+            }
+
+            if (chunks.length) {
+              const descriptor = chunks[0].trim();
+              if (!material.description && descriptor) {
+                material.description = descriptor;
+              }
+            }
+
             const numbers = [];
             const uoms = [];
             for (let i = 1; i < chunks.length; i += 1) {
               const piece = chunks[i];
-              const match = piece.match(/([\d.,]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
+              const match = piece.match(/([\d.,-]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
               if (match) {
-                numbers.push(toNum(match[1]));
+                const numeric = toNum(match[1]);
+                if (numeric != null) numbers.push(numeric);
                 uoms.push(match[2].toUpperCase());
+              } else {
+                const numeric = toNum(piece.replace(/\s*%$/, ''));
+                if (numeric != null) numbers.push(numeric);
               }
             }
-            if (numbers.length >= 4) {
-              [material.planned, material.assigned, material.issued, material.total_ai] = numbers.slice(0, 4);
-              if (uoms.length) {
-                material.uom = uoms.sort((a, b) => uoms.filter((x) => x === b).length - uoms.filter((x) => x === a).length)[0];
+
+            const fields = ['planned', 'assigned', 'issued', 'total_ai'];
+            numbers.slice(0, fields.length).forEach((value, idx) => {
+              const key = fields[idx];
+              if (value != null && material[key] == null) {
+                material[key] = value;
               }
-            }
-          }
-          index += 1;
+            });
 
-          if (index < body.length && isHUHeader(body[index])) index += 1;
-          while (index < body.length && isHUData(body[index])) {
-            const huLine = body[index].replace(/^\|/, '');
-            const match = huLine.match(/\s*(\d{8,})\s+(\w+)\s+([\d.,]+)\s+(EA|PC|TH|KG|M|L|ML|G)\s+(Assigned|Issued)/i);
-            if (match) {
-              material.hus.push({
-                hu: match[1],
-                batch: match[2],
-                qty: toNum(match[3]),
-                uom: match[4].toUpperCase(),
-                status: match[5],
-              });
-              totalHU += 1;
+            if (uoms.length) {
+              material.uom = uoms
+                .slice()
+                .sort((a, b) => uoms.filter((x) => x === b).length - uoms.filter((x) => x === a).length)[0];
             }
-            index += 1;
-          }
 
-          if (index < body.length && isMaterialRow(body[index])) {
-            const summary = body[index];
-            const tokens = summary.split(/\s{2,}/).filter(Boolean);
-            const numbers = tokens.slice(1).map((token) => toNum(token.replace(/\s*%$/, ''))).filter((value) => value !== null);
-            if (numbers.length >= 5) {
-              material.planned = material.planned ?? numbers[0];
-              material.assigned = material.assigned ?? numbers[1];
-              material.issued = material.issued ?? numbers[2];
-              material.total_ai = material.total_ai ?? numbers[3];
-              material.converted = numbers[4];
-            }
-            const deviationMatch = summary.match(/([\d.,-]+)\s*%\s*\|?\s*$/);
+            const deviationMatch = line.match(/([\d.,-]+)\s*%\s*\|?\s*$/);
             if (deviationMatch) {
-              const deviation = deviationMatch[1].trim();
-              material.pct_deviation = deviation === '99,999,999.0' ? null : toNum(deviation);
+              const deviationRaw = deviationMatch[1];
+              material.pct_deviation = deviationRaw === '99,999,999.0' ? null : toNum(deviationRaw);
             }
-            index += 1;
-          }
 
-          materials.push(material);
-          continue;
+            let lookahead = index + 1;
+            if (lookahead < body.length && /\|\s+Handling Unit/i.test(body[lookahead])) {
+              lookahead += 1;
+              while (lookahead < body.length && /^\s*\|\s*\d{6,}/.test(body[lookahead])) {
+                const huLine = body[lookahead].replace(/^\s*\|/, '').replace(/\|$/, '').trim();
+                const match = huLine.match(/^(\d{8,})\s+(\S+)\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b\s+(Assigned|Issued)/i);
+                if (match) {
+                  material.hus.push({
+                    hu: match[1],
+                    batch: match[2],
+                    qty: toNum(match[3]),
+                    uom: match[4].toUpperCase(),
+                    status: match[5],
+                  });
+                  totalHU += 1;
+                }
+                lookahead += 1;
+              }
+              index = lookahead - 1;
+            }
+          }
         }
+
         index += 1;
       }
 
