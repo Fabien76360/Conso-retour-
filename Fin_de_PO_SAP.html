@@ -121,6 +121,10 @@
       accent-color: var(--accent);
       transform: translateY(1px);
     }
+    .pill.toggle input:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
     .pill .label {
       display: block;
       font-size: 11px;
@@ -133,6 +137,39 @@
       font-weight: 600;
       color: var(--ink);
       word-break: break-word;
+    }
+    tbody tr.state-green td { background: rgba(16, 185, 129, 0.12); }
+    tbody tr.state-yellow td { background: rgba(245, 158, 11, 0.16); }
+    tbody tr.state-gray td { background: rgba(148, 163, 184, 0.14); }
+    .resume-row td {
+      background: rgba(34, 211, 238, 0.08);
+      border-left: 1px solid rgba(34, 211, 238, 0.18);
+      border-right: 1px solid rgba(34, 211, 238, 0.18);
+      border-bottom: 1px solid rgba(34, 211, 238, 0.24);
+      color: #9aa4b2;
+      font-size: 12px;
+      letter-spacing: 0.01em;
+    }
+    .resume-row strong { color: #e2e8f0; }
+    .resume-label {
+      display: inline-block;
+      margin-right: 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #38bdf8;
+      font-size: 11px;
+    }
+    .cardify td {
+      border-left: 1px solid rgba(30, 41, 59, 0.9);
+      border-right: 1px solid rgba(30, 41, 59, 0.9);
+    }
+    .cardify td:first-child { border-top-left-radius: 12px; }
+    .cardify td:last-child { border-top-right-radius: 12px; }
+    .resume-row td:first-child { border-bottom-left-radius: 12px; }
+    .resume-row td:last-child { border-bottom-right-radius: 12px; }
+    .cardify:not(.resume-row) td {
+      border-top: 1px solid rgba(30, 41, 59, 0.9);
     }
     table {
       width: 100%;
@@ -152,13 +189,13 @@
       text-transform: uppercase;
       color: var(--muted);
     }
-    tbody tr:hover {
-      background: rgba(148, 163, 184, 0.08);
-    }
+    tbody tr.material-row:hover td { box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35); }
+    .material-row td { border-bottom: 0; }
     details summary {
       cursor: pointer;
       color: var(--accent);
     }
+    .hu-list { margin-top: 8px; }
     .hu-item {
       font-size: 12px;
       color: var(--muted);
@@ -187,6 +224,24 @@
       line-height: 1.6;
     }
     code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+    body.op-big .controls {
+      font-size: 16px;
+      gap: 16px;
+    }
+    body.op-big button,
+    body.op-big input[type="file"] {
+      font-size: 16px;
+      padding: 12px 16px;
+    }
+    body.op-big table { font-size: 16px; }
+    body.op-big th,
+    body.op-big td {
+      padding: 14px 16px;
+    }
+    body.op-big details summary {
+      font-size: 16px;
+      padding: 6px 0;
+    }
     @media (max-width: 720px) {
       th, td { padding: 8px; }
       .controls { gap: 8px; }
@@ -210,6 +265,9 @@
         <label class="pill toggle" for="toggleIssued">
           <input id="toggleIssued" type="checkbox" /> Masquer les Issued
         </label>
+        <label class="pill toggle" for="modeOp">
+          <input id="modeOp" type="checkbox" /> Mode opérateur
+        </label>
         <span id="stats" class="tag">0 materials • 0 HU</span>
       </div>
       <div id="meta" class="meta-grid" aria-live="polite"></div>
@@ -219,18 +277,9 @@
       <div style="overflow-x:auto;">
         <table id="results">
           <thead>
-            <tr>
-              <th>Material</th>
-              <th>Description</th>
-              <th>UoM</th>
-              <th>Planned</th>
-              <th>Assigned</th>
-              <th>Issued</th>
-              <th>Total A+I</th>
-              <th>Handling Units</th>
-            </tr>
+            <tr id="tableHead"></tr>
           </thead>
-          <tbody></tbody>
+          <tbody id="tableBody"></tbody>
         </table>
       </div>
     </section>
@@ -243,6 +292,7 @@
   <script>
   const UOM_PATTERN = /(EA|PC|TH|KG|M|L|ML|G)\b/i;
   let toggleIssued;
+  let modeOpToggle;
 
   const toNumber = (raw) => {
     if (raw == null) return null;
@@ -431,59 +481,127 @@
   }
 
   function getVisibleHUs(material) {
-    if (!toggleIssued || !Array.isArray(material.hus)) return material.hus || [];
+    if (!Array.isArray(material.hus)) return [];
+    if (!toggleIssued) return material.hus;
     return toggleIssued.checked ? material.hus.filter((hu) => hu.status !== 'Issued') : material.hus;
   }
 
-  function renderTable(materials) {
-    const tbody = document.querySelector('#results tbody');
+  const DEFAULT_COLUMNS = [
+    {
+      key: 'material',
+      label: 'Material',
+      className: 'col-material',
+      render: (item) => item.material || '',
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      className: 'col-description',
+      render: (item) => item.description || '',
+    },
+    {
+      key: 'uom',
+      label: 'UoM',
+      className: 'col-uom',
+      render: (item) => item.uom || '',
+    },
+    {
+      key: 'planned',
+      label: 'Planned',
+      className: 'col-planned',
+      render: (item) => formatNumber(item.planned),
+    },
+    {
+      key: 'assigned',
+      label: 'Assigned',
+      className: 'col-assigned',
+      render: (item) => formatNumber(item.assigned),
+    },
+    {
+      key: 'issued',
+      label: 'Issued',
+      className: 'col-issued',
+      render: (item) => formatNumber(item.issued),
+    },
+    {
+      key: 'total_ai',
+      label: 'Total A+I',
+      className: 'col-total',
+      render: (item) => formatNumber(item.total_ai),
+    },
+    {
+      key: 'hu',
+      label: 'HU',
+      className: 'col-hu',
+      render: (_, visibleHUs) => renderHU(visibleHUs),
+    },
+  ];
+
+  const OPERATOR_COLUMNS = [
+    DEFAULT_COLUMNS[0],
+    DEFAULT_COLUMNS[1],
+    DEFAULT_COLUMNS[4],
+    DEFAULT_COLUMNS[5],
+    DEFAULT_COLUMNS[6],
+    DEFAULT_COLUMNS[7],
+  ];
+
+  function isModeOperator() {
+    return !!(modeOpToggle && modeOpToggle.checked);
+  }
+
+  function renderTable(entries) {
+    const headRow = document.getElementById('tableHead');
+    const tbody = document.getElementById('tableBody');
+    const columns = isModeOperator() ? OPERATOR_COLUMNS : DEFAULT_COLUMNS;
+    headRow.innerHTML = columns.map((col) => `<th class="${col.className || ''}">${col.label}</th>`).join('');
     tbody.innerHTML = '';
 
-    for (const item of materials) {
-      const row = document.createElement('tr');
-      const visibleHUs = getVisibleHUs(item);
-      row.innerHTML = `
-        <td>${item.material || ''}</td>
-        <td>${item.description || ''}</td>
-        <td>${item.uom || ''}</td>
-        <td>${formatNumber(item.planned)}</td>
-        <td>${formatNumber(item.assigned)}</td>
-        <td>${formatNumber(item.issued)}</td>
-        <td>${formatNumber(item.total_ai)}</td>
-        <td>${renderHU(visibleHUs)}</td>
-      `;
-      tbody.appendChild(row);
+    const fragment = document.createDocumentFragment();
+    for (const { material: item, visibleHUs } of entries) {
+      const mainRow = document.createElement('tr');
+      mainRow.classList.add('material-row', 'cardify');
+      const stateClass = resolveStateClass(item, visibleHUs);
+      if (stateClass) mainRow.classList.add(stateClass);
+      mainRow.innerHTML = columns
+        .map((col) => `<td class="${col.className || ''}">${col.render(item, visibleHUs)}</td>`)
+        .join('');
+      fragment.appendChild(mainRow);
+
+      const resumeRow = document.createElement('tr');
+      resumeRow.classList.add('resume-row');
+      resumeRow.innerHTML = `<td colspan="${columns.length}"><span class="resume-label">Σ Résumé :</span> Planned <strong>${formatNumber(item.planned)}</strong> | Assigned <strong>${formatNumber(item.assigned)}</strong> | Issued <strong>${formatNumber(item.issued)}</strong> | Total A+I <strong>${formatNumber(item.total_ai)}</strong></td>`;
+      fragment.appendChild(resumeRow);
     }
+    tbody.appendChild(fragment);
+  }
+
+  function resolveStateClass(item, visibleHUs) {
+    if (!visibleHUs.length) return 'state-gray';
+    const allAssigned = visibleHUs.every((hu) => hu.status === 'Assigned');
+    const issuedQty = typeof item.issued === 'number' ? item.issued : 0;
+    if (allAssigned && issuedQty <= 0) return 'state-green';
+    return 'state-yellow';
   }
 
   function renderHU(list) {
     const items = Array.isArray(list) ? list : [];
     const count = items.length;
-    const details = document.createElement('details');
-    const summary = document.createElement('summary');
-    summary.textContent = `${count} HU`;
-    details.appendChild(summary);
-    const wrapper = document.createElement('div');
-    if (!count) {
-      const empty = document.createElement('div');
-      empty.className = 'hu-item empty';
-      empty.textContent = 'Aucun HU visible';
-      wrapper.appendChild(empty);
-    }
-    for (const hu of items) {
-      const div = document.createElement('div');
-      div.className = 'hu-item';
-      div.innerHTML = `HU <strong>${hu.hu}</strong> • Batch ${hu.batch} • ${formatNumber(hu.qty)} ${hu.uom} • <span class="hu-status ${hu.status}">${hu.status}</span>`;
-      wrapper.appendChild(div);
-    }
-    details.appendChild(wrapper);
-    return details.outerHTML;
+    const inner = count
+      ? items
+          .map(
+            (hu) =>
+              `<div class="hu-item">HU <strong>${hu.hu}</strong> • Batch ${hu.batch} • ${formatNumber(hu.qty)} ${hu.uom} • <span class="hu-status ${hu.status}">${hu.status}</span></div>`
+          )
+          .join('')
+      : '<div class="hu-item empty">Aucun HU visible</div>';
+    return `<details><summary>${count} HU</summary><div class="hu-list">${inner}</div></details>`;
   }
 
-  function updateStats(materials) {
+  function updateStats(entries) {
     const label = document.getElementById('stats');
-    const totalVisibleHU = materials.reduce((sum, mat) => sum + getVisibleHUs(mat).length, 0);
-    label.textContent = `${materials.length} materials • ${totalVisibleHU} HU`;
+    const totalVisibleHU = entries.reduce((sum, entry) => sum + entry.visibleHUs.length, 0);
+    label.textContent = `${entries.length} materials • ${totalVisibleHU} HU`;
   }
 
   function toCSV(materials) {
@@ -511,9 +629,19 @@
 
   function renderAll() {
     if (!window.__parsed) return;
+    const entries = window.__parsed.materials.map((mat) => ({
+      material: mat,
+      visibleHUs: getVisibleHUs(mat).slice(),
+    }));
+    const operatorMode = isModeOperator();
+    document.body.classList.toggle('op-big', operatorMode);
+    if (toggleIssued) {
+      if (operatorMode && !toggleIssued.checked) toggleIssued.checked = true;
+      toggleIssued.disabled = operatorMode;
+    }
     renderMeta(window.__parsed.meta);
-    renderTable(window.__parsed.materials);
-    updateStats(window.__parsed.materials);
+    renderTable(entries);
+    updateStats(entries);
   }
 
   function render(parsed) {
@@ -556,6 +684,19 @@
   toggleIssued = document.getElementById('toggleIssued');
   if (toggleIssued) {
     toggleIssued.addEventListener('change', () => {
+      if (isModeOperator() && !toggleIssued.checked) {
+        toggleIssued.checked = true;
+      }
+      renderAll();
+    });
+  }
+
+  modeOpToggle = document.getElementById('modeOp');
+  if (modeOpToggle) {
+    modeOpToggle.addEventListener('change', () => {
+      if (modeOpToggle.checked && toggleIssued && !toggleIssued.checked) {
+        toggleIssued.checked = true;
+      }
       renderAll();
     });
   }
