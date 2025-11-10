@@ -700,15 +700,29 @@
               }
             }
 
+            let startIdx = 1;
+            // Si on détecte une UoM suivie d’un petit nombre (<5) avant les vraies valeurs,
+            // on saute ce couple (ex : "ML 0,6") pour éviter une fausse colonne Planned.
+            if (chunks.length >= 5) {
+              const maybeUom = (chunks[1] || '').trim();
+              const uomProbe = /^(EA|PC|TH|KG|M|L|ML|G)$/i.test(maybeUom);
+              const n1 = toNum((chunks[2] || '').replace(/\s*%$/, ''));
+              const n2 = toNum((chunks[3] || '').replace(/\s*%$/, ''));
+              if (uomProbe && n1 != null && n1 < 5 && n2 != null && n2 > n1 * 5) {
+                startIdx = 3; // on saute "UoM + dosage"
+                material.uom = material.uom || maybeUom.toUpperCase();
+              }
+            }
+
             const numbers = [];
             const uoms = [];
-            for (let i = 1; i < chunks.length; i += 1) {
+            for (let i = startIdx; i < chunks.length; i += 1) {
               const piece = chunks[i];
-              const match = piece.match(/(?<!\/)([\d.,-]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
-              if (match) {
-                const numeric = toNum(match[1]);
+              const m = piece.match(/(?<!\/)([\d.,-]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
+              if (m) {
+                const numeric = toNum(m[1]);
                 if (numeric != null) numbers.push(numeric);
-                uoms.push(match[2].toUpperCase());
+                uoms.push(m[2].toUpperCase());
               } else {
                 const numeric = toNum(piece.replace(/\s*%$/, ''));
                 if (numeric != null) numbers.push(numeric);
