@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Extractor Fin de PO – SAP TXT</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --ink: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #22d3ee;
+      --border: #1e293b;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, rgba(34,211,238,0.12), transparent 45%), var(--bg);
+      color: var(--ink);
+      font: 14px/1.5 "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 20px clamp(12px, 3vw, 32px);
+    }
+    header h1 {
+      margin: 0;
+      font-size: clamp(18px, 4vw, 28px);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 780px;
+      font-size: 13px;
+    }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: clamp(16px, 3vw, 40px);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .panel {
+      background: rgba(17, 24, 39, 0.82);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+      padding: clamp(16px, 2vw, 24px);
+      backdrop-filter: blur(6px);
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    input[type="file"] {
+      background: rgba(8, 15, 27, 0.9);
+      color: var(--ink);
+      border: 1px dashed rgba(148, 163, 184, 0.35);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    button {
+      appearance: none;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(8, 15, 27, 0.9);
+      color: var(--ink);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    button:hover {
+      border-color: rgba(148, 163, 184, 0.6);
+      transform: translateY(-1px);
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .meta-grid {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .pill {
+      padding: 10px 12px;
+      background: rgba(8, 15, 27, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 10px;
+      min-height: 60px;
+    }
+    .pill .label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .pill strong {
+      font-weight: 600;
+      color: var(--ink);
+      word-break: break-word;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+      vertical-align: top;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.95);
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    tbody tr:hover {
+      background: rgba(148, 163, 184, 0.08);
+    }
+    details summary {
+      cursor: pointer;
+      color: var(--accent);
+    }
+    .hu-item {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 0;
+    }
+    .hu-item strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .hu-status {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .hu-status.Assigned { background: rgba(34, 211, 238, 0.18); color: #22d3ee; }
+    .hu-status.Issued { background: rgba(251, 191, 36, 0.25); color: #fbbf24; }
+    .hu-status.Consumed { background: rgba(251, 113, 133, 0.25); color: #fb7185; }
+    .empty { color: var(--muted); font-style: italic; }
+    .footnote {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+    @media (max-width: 720px) {
+      th, td { padding: 8px; }
+      .controls { gap: 8px; }
+      button { flex: 1 1 120px; }
+      input[type="file"] { flex: 1 1 220px; }
+      table { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Extractor Fin de PO – SAP TXT</h1>
+    <p>Importez un export texte «&nbsp;Materials and Reconciliation Report 2&nbsp;» (ALV &laquo;&nbsp;Unconverted&nbsp;&raquo;). Les matériaux, quantités et Handling Units sont extraits automatiquement, affichés et exportables en CSV.</p>
+  </header>
+  <main>
+    <section class="panel">
+      <div class="controls">
+        <input id="fileInput" type="file" accept=".txt,.log,.lst,.out,.prn,.csv,.*" />
+        <button id="btnDemo" type="button">Essai rapide</button>
+        <button id="btnExport" type="button">Exporter CSV</button>
+        <span id="stats" class="tag">0 Materials • 0 HU</span>
+      </div>
+      <div id="meta" class="meta-grid" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" aria-live="polite">
+      <div style="overflow-x:auto;">
+        <table id="results">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Description</th>
+              <th>UoM</th>
+              <th>Planned</th>
+              <th>Assigned</th>
+              <th>Issued</th>
+              <th>Total A+I</th>
+              <th>Converted</th>
+              <th>% Deviation</th>
+              <th>Handling Units</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="footnote">
+      Le parser nettoie automatiquement les séparateurs de milliers, gère les négatifs de type <code>79.8-</code> et remplace la valeur «&nbsp;99,999,999.0&nbsp;» du pourcentage de déviation par une case vide. Les espaces insécables standards et fines (<code>\u00A0</code>, <code>\u202F</code>) sont retirés avant analyse.
+    </p>
+  </main>
+
+  <script>
+  const UOM_PATTERN = /(EA|PC|TH|KG|M|L|ML|G)\b/i;
+
+  const toNumber = (raw) => {
+    if (raw == null) return null;
+    let value = String(raw).replace(/[\u00A0\u202F]/g, ' ').trim();
+    if (!value) return null;
+    const hasTrailingMinus = /-$/.test(value);
+    const hasLeadingMinus = /^-/.test(value);
+    value = value.replace(/-/g, '').replace(/\s+/g, '').replace(/,/g, '');
+    const num = Number(value);
+    if (Number.isNaN(num)) return null;
+    const isNegative = hasTrailingMinus || hasLeadingMinus;
+    return isNegative ? -num : num;
+  };
+
+  const cleanLine = (line) => line.replace(/[\u00A0\u202F]/g, ' ').replace(/\s+$/g, '');
+
+  const formatNumber = (value) => {
+    if (value == null || Number.isNaN(value)) return '';
+    if (!Number.isFinite(value)) return '';
+    const abs = Math.abs(value);
+    const options = abs >= 1000 ? { maximumFractionDigits: 2 } : { maximumFractionDigits: 3 };
+    return value.toLocaleString('fr-FR', options);
+  };
+
+  function parseMeta(lines) {
+    const meta = { po: null, output: null, output_desc: null, output_batch: null, planned: null, actual: null, yield: null };
+
+    for (const line of lines) {
+      if (/^Process Order\s+/.test(line)) {
+        const tokens = line.trim().split(/\s+/);
+        meta.po = tokens[tokens.length - 1];
+      } else if (/^Output Material\s+/.test(line)) {
+        const match = line.match(/^Output Material\s+(\d+)\s+(.*)$/);
+        if (match) {
+          meta.output = match[1];
+          meta.output_desc = match[2].trim();
+        }
+      } else if (/^Output Batch Number\s+/.test(line)) {
+        meta.output_batch = line.replace(/^Output Batch Number\s+/, '').trim();
+      } else if (/^Planned Quantity\s+/.test(line)) {
+        const m = line.match(/Planned Quantity\s+([\d.,\s-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b/i);
+        if (m) meta.planned = { qty: toNumber(m[1]), uom: m[2].toUpperCase() };
+      } else if (/^Actual Quantity\s+/.test(line)) {
+        const m = line.match(/Actual Quantity\s+([\d.,\s-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b/i);
+        if (m) meta.actual = { qty: toNumber(m[1]), uom: m[2].toUpperCase() };
+      } else if (/^Yield\s+/.test(line)) {
+        const m = line.match(/Yield\s+([\d.,\s-]+)\s*%/);
+        if (m) meta.yield = toNumber(m[1]);
+      }
+    }
+    return meta;
+  }
+
+  function parseReport(rawText) {
+    const rawLines = rawText.split(/\r?\n/).map(cleanLine);
+    const lines = rawLines.filter(Boolean);
+    const skipPattern = /^(ASPEN\s+.*Page\s*:|Printed on\s*:|Report Id\s*:|Variant Id\s*:|Storage Location\s*:|\*+END OF REPORT\*+)/i;
+    const filtered = lines.filter((line) => !skipPattern.test(line));
+
+    const meta = parseMeta(filtered);
+    const materials = [];
+    let totalHU = 0;
+
+    const isMaterialLine = (line) => /^\|\d{5,}\s+/.test(line) && !/Handling Unit/i.test(line);
+    const containsUOM = (line) => UOM_PATTERN.test(line);
+
+    for (let i = 0; i < filtered.length; i++) {
+      const line = filtered[i];
+      if (!isMaterialLine(line)) continue;
+
+      const materialMatch = line.match(/^\|(\d{5,})\s+(.*)$/);
+      if (!materialMatch) continue;
+
+      const materialCode = materialMatch[1];
+      const rest = materialMatch[2].replace(/\|$/, '').trim();
+      const segments = rest.split(/\s{2,}(?=\S)/).filter(Boolean);
+      if (!segments.length) continue;
+
+      const description = segments.shift().trim();
+      const values = [];
+      const detectedUoms = [];
+
+      for (const segment of segments) {
+        const measure = segment.trim();
+        const match = measure.match(/([\d.,\s-]+)/);
+        if (!match) continue;
+        const numeric = toNumber(match[1]);
+        values.push(numeric);
+        const uomMatch = measure.match(UOM_PATTERN);
+        if (uomMatch) detectedUoms.push(uomMatch[1].toUpperCase());
+      }
+
+      const mat = {
+        material: materialCode,
+        description,
+        uom: detectedUoms.length ? mostCommon(detectedUoms) : null,
+        planned: values[0] ?? null,
+        assigned: values[1] ?? null,
+        issued: values[2] ?? null,
+        total_ai: values[3] ?? null,
+        converted: null,
+        pct_deviation: null,
+        hus: [],
+      };
+
+      let cursor = i + 1;
+
+      // Optional Handling Unit header
+      if (cursor < filtered.length && /Handling Unit/i.test(filtered[cursor])) {
+        cursor++;
+        while (cursor < filtered.length && /^\|\s*\d{6,}/.test(filtered[cursor])) {
+          const huLine = filtered[cursor].replace(/^\|/, '').replace(/\|$/, '').trim();
+          const huMatch = huLine.match(/^(\d{8,})\s+(\S+)\s+([\d.,\s-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b\s+(\w+)/i);
+          if (huMatch) {
+            const hu = {
+              hu: huMatch[1],
+              batch: huMatch[2],
+              qty: toNumber(huMatch[3]),
+              uom: huMatch[4].toUpperCase(),
+              status: capitalize(huMatch[5]),
+            };
+            mat.hus.push(hu);
+            totalHU++;
+          }
+          cursor++;
+        }
+      }
+
+      // Summary line (same material code without UoM columns)
+      if (cursor < filtered.length) {
+        const summaryLine = filtered[cursor];
+        if (summaryLine.startsWith(`|${materialCode}`) && !containsUOM(summaryLine.slice(materialCode.length + 1))) {
+          const summaryRest = summaryLine
+            .replace(/^\|\d{5,}\s+/, '')
+            .replace(/\|$/, '')
+            .trim();
+          const summarySegs = summaryRest.split(/\s{2,}(?=\S)/).filter(Boolean);
+          if (summarySegs.length) summarySegs.shift();
+          const numbers = summarySegs.map((token) => toNumber(token.replace(/\s*%$/, '')));
+          if (numbers.length >= 1 && mat.planned == null) mat.planned = numbers[0];
+          if (numbers.length >= 2 && mat.assigned == null) mat.assigned = numbers[1];
+          if (numbers.length >= 3 && mat.issued == null) mat.issued = numbers[2];
+          if (numbers.length >= 4 && mat.total_ai == null) mat.total_ai = numbers[3];
+          if (numbers.length >= 5) mat.converted = numbers[4];
+
+          const pctMatch = summaryRest.match(/([\d.,\s-]+)\s*%\s*$/);
+          if (pctMatch) {
+            const pctRaw = pctMatch[1].trim();
+            mat.pct_deviation = pctRaw === '99,999,999.0' ? null : toNumber(pctRaw);
+          }
+          cursor++;
+        }
+      }
+
+      materials.push(mat);
+      i = cursor - 1;
+    }
+
+    return { meta, materials, totalHU };
+  }
+
+  function mostCommon(list) {
+    return list
+      .slice()
+      .sort((a, b) => list.filter((x) => x === b).length - list.filter((x) => x === a).length)[0];
+  }
+
+  function capitalize(text) {
+    return text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : text;
+  }
+
+  function renderMeta(meta) {
+    const container = document.getElementById('meta');
+    const blocks = [];
+    if (meta.po) blocks.push(createPill('PO', meta.po));
+    if (meta.output) blocks.push(createPill('Output Material', `${meta.output} – ${meta.output_desc || ''}`));
+    if (meta.output_batch) blocks.push(createPill('Batch', meta.output_batch));
+    if (meta.planned) blocks.push(createPill('Planned', `${formatNumber(meta.planned.qty)} ${meta.planned.uom}`));
+    if (meta.actual) blocks.push(createPill('Actual', `${formatNumber(meta.actual.qty)} ${meta.actual.uom}`));
+    if (meta.yield != null) blocks.push(createPill('Yield', `${formatNumber(meta.yield)} %`));
+    container.innerHTML = blocks.join('');
+  }
+
+  function createPill(label, value) {
+    return `<div class="pill"><span class="label">${label}</span><strong>${value}</strong></div>`;
+  }
+
+  function renderTable(materials) {
+    const tbody = document.querySelector('#results tbody');
+    tbody.innerHTML = '';
+
+    for (const item of materials) {
+      const row = document.createElement('tr');
+      const huCount = item.hus.length;
+      row.innerHTML = `
+        <td>${item.material || ''}</td>
+        <td>${item.description || ''}</td>
+        <td>${item.uom || ''}</td>
+        <td>${formatNumber(item.planned)}</td>
+        <td>${formatNumber(item.assigned)}</td>
+        <td>${formatNumber(item.issued)}</td>
+        <td>${formatNumber(item.total_ai)}</td>
+        <td>${formatNumber(item.converted)}</td>
+        <td>${item.pct_deviation == null ? '<span class="empty">—</span>' : formatNumber(item.pct_deviation)}</td>
+        <td>${huCount ? renderHU(item.hus, huCount) : '<span class="empty">Aucun HU</span>'}</td>
+      `;
+      tbody.appendChild(row);
+    }
+  }
+
+  function renderHU(list, count) {
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = `${count} HU`;
+    details.appendChild(summary);
+    const wrapper = document.createElement('div');
+    for (const hu of list) {
+      const div = document.createElement('div');
+      div.className = 'hu-item';
+      div.innerHTML = `HU <strong>${hu.hu}</strong> • Batch ${hu.batch} • ${formatNumber(hu.qty)} ${hu.uom} • <span class="hu-status ${hu.status}">${hu.status}</span>`;
+      wrapper.appendChild(div);
+    }
+    details.appendChild(wrapper);
+    return details.outerHTML;
+  }
+
+  function updateStats(materials, totalHU) {
+    const label = document.getElementById('stats');
+    label.textContent = `${materials.length} Materials • ${totalHU} HU`;
+  }
+
+  function toCSV(materials) {
+    const header = ['Material', 'Description', 'UoM', 'Planned', 'Assigned', 'Issued', 'Total_A_plus_I', 'Converted', 'Pct_Deviation', 'HU_Count'];
+    const rows = [header.join(',')];
+    for (const mat of materials) {
+      const values = [
+        mat.material,
+        mat.description,
+        mat.uom,
+        mat.planned,
+        mat.assigned,
+        mat.issued,
+        mat.total_ai,
+        mat.converted,
+        mat.pct_deviation == null ? '' : mat.pct_deviation,
+        mat.hus.length,
+      ].map((value) => {
+        if (value == null) return '';
+        const text = String(value);
+        return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+      });
+      rows.push(values.join(','));
+    }
+    return rows.join('\n');
+  }
+
+  function render(parsed) {
+    renderMeta(parsed.meta);
+    renderTable(parsed.materials);
+    updateStats(parsed.materials, parsed.totalHU);
+    window.__parsed = parsed;
+  }
+
+  const fileInput = document.getElementById('fileInput');
+  fileInput.addEventListener('change', async (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const parsed = parseReport(text);
+    render(parsed);
+  });
+
+  document.getElementById('btnExport').addEventListener('click', () => {
+    if (!window.__parsed || !window.__parsed.materials.length) {
+      alert('Aucune donnée à exporter.');
+      return;
+    }
+    const csv = toCSV(window.__parsed.materials);
+    const po = window.__parsed.meta.po || 'po';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fin_po_${po}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  });
+
+  document.getElementById('btnDemo').addEventListener('click', () => {
+    const parsed = parseReport(DEMO_TEXT);
+    render(parsed);
+  });
+
+  const DEMO_TEXT = `Material Reconciliation Report 2
+Process Order           1049013
+Output Material         46174               ARIXTRA 2.5MG 10SPR BE
+Output Batch Number     0238
+Planned Quantity              2,500 EA
+Actual Quantity               1,350 EA
+Yield                          54.0 %
+
+Material Summary
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|36835                                 PVC 400 MICRONS LAIZE 333 RL            89.500  KG             326  KG               0  KG             326  KG                                                                                               |
+|                  Handling Unit                                     Batch          HU Quantity         Status   Packing            Document   Issue Date Operator  Reviewer       Date        Comment                                              |
+|                  136631621622044335                                2025085131               326  KG   Assigned NDB-PAL-BOI-EU-P12                                                                                                                 |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|36835                                 PVC 400 MICRONS LAIZE 333 RL            89.500                 326                   0                 326            48.330      99,999,999.0  %                                                            |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|324480                                ETUI ARIXTRA 2.5MG 10SPR 3H BE           2.500  TH           4.400  TH           0.274  TH           4.674  TH                                                                                               |
+|                  Handling Unit                                     Batch          HU Quantity         Status   Packing            Document   Issue Date Operator  Reviewer       Date        Comment                                              |
+|                  136631621622719820                                2025307430             4.400  TH   Assigned NDB-PAL-BOI-EU-P12                                                                                                                 |
+|                  36631621622802983                                 2025277176             0.274  TH   Issued   NDB-CAR-CRF-FR-KA1 4900871689 05.11.2025                                                                                           |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|324480                                ETUI ARIXTRA 2.5MG 10SPR 3H BE           2.500               4.400               0.274               4.674             1.350              79.8- %                                                            |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|324483                                BOITE RABAT 2.5MG 10SPR TIS FR          17.200  PC          12.800  PC           0.000  PC          12.800  PC                                                                                               |
+|                  Handling Unit                                     Batch          HU Quantity         Status   Packing            Document   Issue Date Operator  Reviewer       Date        Comment                                              |
+|                  136631621622719821                                2025307431            12.800  PC   Assigned NDB-PAL-BOI-EU-P13                                                                                                                 |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|324483                                BOITE RABAT 2.5MG 10SPR TIS FR          17.200              12.800               0.000              12.800             3.200               0.0 %                                                              |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|800158                                NOTICE GENERIQUE ARIXTRA 2.5MG           0.000  G            0.250  G            0.000  G            0.250  G                                                                                               |
+|                  Handling Unit                                     Batch          HU Quantity         Status   Packing            Document   Issue Date Operator  Reviewer       Date        Comment                                              |
+|                  136631621622719822                                2025307432             0.250  G   Issued   NDB-CAR-CRF-FR-KA1 4900871690 05.11.2025                                                                                           |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|800158                                NOTICE GENERIQUE ARIXTRA 2.5MG           0.000               0.250               0.000               0.250             0.250               0.0 %                                                              |
+`;
+
+  // Pré-charge le mini-exemple pour offrir un premier rendu.
+  render(parseReport(DEMO_TEXT));
+  </script>
+</body>
+</html>
