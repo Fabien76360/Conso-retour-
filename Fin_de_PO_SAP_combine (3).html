@@ -615,23 +615,105 @@
   </main>
 
   <script>
+    // -------- NUMERIC LOCALE CONFIG --------
+    const NUMCFG = {
+      // 'auto' | 'us' | 'eu'
+      FORCE_LOCALE: 'auto',
+      // tolérance: quand les deux patterns coexistent, on choisit le plus fréquent
+      MIN_HITS: 2,
+    };
+    const NUMSTATE = { locale: 'us' };
+
+    function detectNumericLocale(rawText) {
+      if (NUMCFG.FORCE_LOCALE !== 'auto') return NUMCFG.FORCE_LOCALE;
+
+      const sample = String(rawText).slice(0, 500_000);
+
+      const usThousands = sample.match(/\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b/g) || [];
+      const usDecimalOnly = sample.match(/\b\d+\.\d{1,3}\b/g) || [];
+
+      const euThousands = sample.match(/\b\d{1,3}(?:\.\d{3})+(?:,\d+)?\b/g) || [];
+      const euDecimalOnly = sample.match(/\b\d+,\d{1,3}\b/g) || [];
+
+      const usScore = usThousands.length + Math.max(0, usDecimalOnly.length - euThousands.length);
+      const euScore = euThousands.length + Math.max(0, euDecimalOnly.length - usThousands.length);
+
+      if (usScore >= euScore && usScore >= NUMCFG.MIN_HITS) return 'us';
+      if (euScore > usScore && euScore >= NUMCFG.MIN_HITS) return 'eu';
+
+      const dotAsDecimal = /\d+\.\d{1,3}\b/.test(sample);
+      const commaAsDecimal = /\d+,\d{1,3}\b/.test(sample);
+      if (dotAsDecimal && !commaAsDecimal) return 'us';
+      if (commaAsDecimal && !dotAsDecimal) return 'eu';
+
+      return 'us';
+    }
+
+    function _toClean(str) {
+      return String(str || '')
+        .replace(/\u00A0/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function normalizeNumberByLocale(str, locale) {
+      let s = _toClean(str);
+      if (!s) return 0;
+
+      let negative = false;
+      if (/-$/.test(s)) {
+        negative = true;
+        s = s.replace(/-$/, '');
+      }
+      if (/^-/.test(s)) {
+        negative = true;
+        s = s.replace(/^-/, '');
+      }
+
+      if (!s) return 0;
+
+      let n;
+      if (locale === 'eu') {
+        const t = s.replace(/\./g, '').replace(',', '.');
+        n = Number(t.replace(/\s/g, ''));
+      } else {
+        const t = s.replace(/,/g, '').replace(/\s/g, '');
+        n = Number(t);
+      }
+      if (!Number.isFinite(n)) return 0;
+      return negative ? -n : n;
+    }
+
+    function parseNum(str) {
+      return normalizeNumberByLocale(str, NUMSTATE.locale);
+    }
+
+    function parseQtyUomSafe(s) {
+      const m = _toClean(s).match(/([\d\s.,-]+)\s*([A-Za-z%]+)\b/);
+      if (!m) return null;
+      const qty = parseNum(m[1]);
+      const uom = m[2].toUpperCase();
+      return { qty, uom };
+    }
+
+    function runNumericDiagnostics() {
+      console.info('[NUM] locale =', NUMSTATE.locale);
+      console.assert(parseNum('155.122') === 155.122, 'Decimale .');
+      const expectedComma = NUMSTATE.locale === 'eu' ? 22.848 : 22848;
+      console.assert(parseNum('22,848') === expectedComma, `Milliers , (${NUMSTATE.locale})`);
+      const sampleQty = parseQtyUomSafe(NUMSTATE.locale === 'eu' ? '0,520 TH' : '0.520 TH');
+      console.assert(sampleQty && sampleQty.qty === 0.52, `QtyUoM ${NUMSTATE.locale.toUpperCase()}`);
+      if (NUMSTATE.locale === 'eu') {
+        console.assert(parseNum('1.234,56') === 1234.56, 'EU format');
+      }
+    }
+
     const state = {
       parsed: null,
       retours: [],
     };
 
     let toggleIssued = null;
-
-    const toNum = (input) => {
-      if (input == null) return null;
-      let value = String(input).trim();
-      if (!value) return null;
-      const isNeg = /-$/.test(value);
-      value = value.replace(/-/g, '').replace(/[\s\u00A0\u202F]/g, '').replace(/,/g, '');
-      const numeric = Number(value);
-      if (Number.isNaN(numeric)) return null;
-      return isNeg ? -numeric : numeric;
-    };
 
     const cleanLine = (line) =>
       line
@@ -659,15 +741,21 @@
         if (/^Output Batch Number\s+/.test(line)) meta.output_batch = line.replace(/^Output Batch Number\s+/, '').trim();
         if (/^Planned Quantity\s+/.test(line)) {
           const match = line.match(/Planned Quantity\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b/i);
-          if (match) meta.planned = { qty: toNum(match[1]), uom: match[2].toUpperCase() };
+          if (match) {
+            const parsedQty = parseQtyUomSafe(`${match[1]} ${match[2]}`);
+            if (parsedQty) meta.planned = { qty: parsedQty.qty, uom: parsedQty.uom };
+          }
         }
         if (/^Actual Quantity\s+/.test(line)) {
           const match = line.match(/Actual Quantity\s+([\d.,-]+)\s+(EA|PC|TH|KG|M|L|ML|G)\b/i);
-          if (match) meta.actual = { qty: toNum(match[1]), uom: match[2].toUpperCase() };
+          if (match) {
+            const parsedQty = parseQtyUomSafe(`${match[1]} ${match[2]}`);
+            if (parsedQty) meta.actual = { qty: parsedQty.qty, uom: parsedQty.uom };
+          }
         }
         if (/^Yield\s+/.test(line)) {
           const match = line.match(/Yield\s+([\d.,-]+)\s*%/);
-          if (match) meta.yield = toNum(match[1]);
+          if (match) meta.yield = parseNum(match[1]);
         }
       }
 
@@ -695,7 +783,7 @@
               const mEnd = tailNoDeviation.match(endRe);
               if (mEnd) {
                 columnsFromEnd = {
-                  nums: [mEnd[1], mEnd[3], mEnd[5], mEnd[7]].map((x) => toNum(x)),
+                  nums: [mEnd[1], mEnd[3], mEnd[5], mEnd[7]].map((x) => parseNum(x)),
                   uoms: [mEnd[2], mEnd[4], mEnd[6], mEnd[8]].map((u) => u.toUpperCase()),
                 };
               }
@@ -738,8 +826,10 @@
               if (chunks.length >= descIdx + 4) {
                 const maybeUom = (chunks[descIdx + 1] || '').trim();
                 const uomProbe = /^(EA|PC|TH|KG|M|L|ML|G)$/i.test(maybeUom);
-                const n1 = toNum((chunks[descIdx + 2] || '').replace(/\s*%$/, ''));
-                const n2 = toNum((chunks[descIdx + 3] || '').replace(/\s*%$/, ''));
+                const rawN1 = (chunks[descIdx + 2] || '').replace(/\s*%$/, '').trim();
+                const rawN2 = (chunks[descIdx + 3] || '').replace(/\s*%$/, '').trim();
+                const n1 = rawN1 ? parseNum(rawN1) : null;
+                const n2 = rawN2 ? parseNum(rawN2) : null;
                 if (uomProbe && n1 != null && n1 < 5 && n2 != null && n2 > n1 * 5) {
                   startIdx = descIdx + 3; // saute "UoM + dosage"
                 }
@@ -748,12 +838,13 @@
                 const piece = chunks[i];
                 const m = piece.match(/(?<!\/)([\d.,-]+)\s*(EA|PC|TH|KG|M|L|ML|G)\b/i);
                 if (m) {
-                  const numeric = toNum(m[1]);
-                  if (numeric != null) numbers.push(numeric);
+                  numbers.push(parseNum(m[1]));
                   uoms.push(m[2].toUpperCase());
                 } else {
-                  const numeric = toNum(piece.replace(/\s*%$/, ''));
-                  if (numeric != null) numbers.push(numeric);
+                  const sanitized = piece.replace(/\s*%$/, '').trim();
+                  if (sanitized && /[\d-]/.test(sanitized)) {
+                    numbers.push(parseNum(sanitized));
+                  }
                 }
               }
             }
@@ -769,7 +860,11 @@
             const deviationMatch = line.match(/([\d.,-]+)\s*%\s*\|?\s*$/);
             if (deviationMatch) {
               const deviationRaw = deviationMatch[1];
-              material.pct_deviation = deviationRaw === '99,999,999.0' ? null : toNum(deviationRaw);
+              if (deviationRaw === '99,999,999.0' || deviationRaw === '99.999.999,0') {
+                material.pct_deviation = null;
+              } else {
+                material.pct_deviation = parseNum(deviationRaw);
+              }
             }
 
             let lookahead = index + 1;
@@ -782,7 +877,7 @@
                   material.hus.push({
                     hu: match[1],
                     batch: match[2],
-                    qty: toNum(match[3]),
+                    qty: parseNum(match[3]),
                     uom: match[4].toUpperCase(),
                     status: match[5],
                   });
@@ -1012,8 +1107,10 @@
       const file = event.target.files && event.target.files[0];
       if (!file) return;
       const text = await file.text();
+      NUMSTATE.locale = detectNumericLocale(text);
       const parsed = parseReport(text);
       render(parsed);
+      runNumericDiagnostics();
     });
 
     document.getElementById('btnExport').addEventListener('click', () => {
@@ -1037,8 +1134,10 @@
     const demoBtn = document.getElementById('btnDemo');
     if (demoBtn) {
       demoBtn.addEventListener('click', () => {
+        NUMSTATE.locale = detectNumericLocale(DEMO_TEXT);
         const parsed = parseReport(DEMO_TEXT);
         render(parsed);
+        runNumericDiagnostics();
       });
     }
 
@@ -1099,7 +1198,7 @@ Material Summary
         const materialCode = material.material || '';
         for (const hu of material.hus || []) {
           if (hu.status === 'Assigned') {
-            const assigned = typeof hu.qty === 'number' ? hu.qty : toNum(hu.qty);
+            const assigned = typeof hu.qty === 'number' ? hu.qty : parseNum(hu.qty);
             state.retours.push({
               id: counter += 1,
               po,
@@ -1316,10 +1415,10 @@ Material Summary
 
     function parseValue(raw, step) {
       if (raw === '' || raw == null) return null;
-      let num = Number(raw);
-      if (Number.isNaN(num) || num < 0) num = 0;
-      if (step === 1) num = Math.round(num);
-      return num;
+      const num = typeof raw === 'number' ? raw : parseNum(raw);
+      const safe = Number.isFinite(num) ? num : 0;
+      const positive = safe < 0 ? 0 : safe;
+      return step === 1 ? Math.round(positive) : positive;
     }
 
     function applyRetoursValue(row, field, raw, input, options = {}) {
