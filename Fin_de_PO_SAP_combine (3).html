@@ -394,6 +394,14 @@
       line-height: 1.35;
     }
 
+    #retoursTable .col-uom {
+      text-align: center;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
     #retoursTable input[type="number"] {
       width: 100%;
       background: rgba(15, 23, 42, 0.6);
@@ -580,6 +588,7 @@
                 <tr>
                   <th>HU</th>
                   <th>Désignation</th>
+                  <th>UoM</th>
                   <th>Assigné</th>
                   <th>Nb de cartons</th>
                   <th>Contenu/carton</th>
@@ -1166,6 +1175,9 @@ Material Summary
         descCell.textContent = descText;
         if (descText) descCell.title = descText;
         tr.appendChild(descCell);
+
+        const uomCell = createCell((row.uom || '').toUpperCase(), 'col-uom');
+        tr.appendChild(uomCell);
 
         tr.appendChild(createCell(formatNumber(row.assigned), 'col-assigned'));
 
