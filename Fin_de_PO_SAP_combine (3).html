@@ -551,6 +551,10 @@
         <div class="panel">
           <div class="controls">
             <input id="fileInput" type="file" accept=".txt,.log,.lst,.out,.prn,.csv,.*" />
+            <label style="display:inline-flex;gap:.5rem;align-items:center;font-size:0.9rem;margin-left:1rem;">
+              <input id="fmtSap" type="checkbox" checked />
+              Séparateurs SAP (1,234.56)
+            </label>
             <button id="btnExport" type="button">Exporter CSV</button>
             <label class="pill toggle"><input type="checkbox" id="toggleIssued" /> Masquer les Issued</label>
             <span id="stats" class="tag">0 materials • 0 HU</span>
@@ -694,6 +698,59 @@
       const qty = parseNum(m[1]);
       const uom = m[2].toUpperCase();
       return { qty, uom };
+    }
+
+    // === FORMAT D'AFFICHAGE NUMÉRIQUE ===
+    let USE_SAP_FORMAT = true;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const fmtToggle = document.getElementById('fmtSap');
+      if (fmtToggle) {
+        USE_SAP_FORMAT = fmtToggle.checked;
+        fmtToggle.addEventListener('change', (event) => {
+          USE_SAP_FORMAT = event.target.checked;
+          if (state.parsed) {
+            renderAll();
+            state.retours.forEach((row) => {
+              if (row && row.dom && row.dom.row) {
+                updateRetoursRow(row);
+              }
+            });
+            refreshRetoursSummary();
+          }
+        });
+      }
+    });
+
+    function decimalsFor(uom) {
+      const unit = String(uom || '').toUpperCase();
+      if (unit === 'EA' || unit === 'PC') return 0;
+      return 3;
+    }
+
+    function formatSAP(n, uom = '', dec = null) {
+      const digits = dec != null ? dec : decimalsFor(uom);
+      return (
+        n.toLocaleString('en-US', {
+          minimumFractionDigits: digits,
+          maximumFractionDigits: digits,
+        }) + (uom ? ` ${uom}` : '')
+      );
+    }
+
+    function formatFR(n, uom = '', dec = null) {
+      const digits = dec != null ? dec : decimalsFor(uom);
+      return (
+        n.toLocaleString('fr-FR', {
+          minimumFractionDigits: digits,
+          maximumFractionDigits: digits,
+        }) + (uom ? ` ${uom}` : '')
+      );
+    }
+
+    function fmt(n, uom = '', dec = null) {
+      if (n == null || !Number.isFinite(n)) return '';
+      return USE_SAP_FORMAT ? formatSAP(n, uom, dec) : formatFR(n, uom, dec);
     }
 
     function runNumericDiagnostics() {
@@ -915,10 +972,11 @@
       return { meta, materials, totalHU };
     }
 
-    const formatNumber = (value) => {
-      if (value == null || Number.isNaN(value)) return '';
-      const formatter = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
-      return formatter.format(value);
+    const formatNumber = (value, uom = '', decimals = null) => {
+      if (value == null || value === '') return '';
+      const numeric = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(numeric)) return '';
+      return fmt(numeric, uom, decimals);
     };
 
     function createPill(label, value) {
@@ -935,9 +993,9 @@
       if (meta.po) blocks.push(createPill('PO', meta.po));
       if (meta.output) blocks.push(createPill('Output', `${meta.output} – ${meta.output_desc || ''}`));
       if (meta.output_batch) blocks.push(createPill('Batch', meta.output_batch));
-      if (meta.planned) blocks.push(createPill('Planned', `${formatNumber(meta.planned.qty)} ${meta.planned.uom}`));
-      if (meta.actual) blocks.push(createPill('Actual', `${formatNumber(meta.actual.qty)} ${meta.actual.uom}`));
-      if (meta.yield != null) blocks.push(createPill('Yield', `${formatNumber(meta.yield)} %`));
+      if (meta.planned) blocks.push(createPill('Planned', formatNumber(meta.planned.qty, meta.planned.uom)));
+      if (meta.actual) blocks.push(createPill('Actual', formatNumber(meta.actual.qty, meta.actual.uom)));
+      if (meta.yield != null) blocks.push(createPill('Yield', `${formatNumber(meta.yield, '', 2)} %`));
       container.innerHTML = blocks.join('');
     }
 
@@ -970,25 +1028,25 @@
         key: 'planned',
         label: 'Planned',
         className: 'col-planned',
-        render: (item) => formatNumber(item.planned),
+        render: (item) => formatNumber(item.planned, item.uom),
       },
       {
         key: 'assigned',
         label: 'Assigned',
         className: 'col-assigned',
-        render: (item) => formatNumber(item.assigned),
+        render: (item) => formatNumber(item.assigned, item.uom),
       },
       {
         key: 'issued',
         label: 'Issued',
         className: 'col-issued',
-        render: (item) => formatNumber(item.issued),
+        render: (item) => formatNumber(item.issued, item.uom),
       },
       {
         key: 'total_ai',
         label: 'Total A+I',
         className: 'col-total',
-        render: (item) => formatNumber(item.total_ai),
+        render: (item) => formatNumber(item.total_ai, item.uom),
       },
       {
         key: 'hu',
@@ -1018,7 +1076,7 @@
 
         const resumeRow = document.createElement('tr');
         resumeRow.classList.add('resume-row');
-        resumeRow.innerHTML = `<td colspan="${columns.length}"><span class="resume-label">Σ Résumé :</span> Planned <strong>${formatNumber(item.planned)}</strong> | Assigned <strong>${formatNumber(item.assigned)}</strong> | Issued <strong>${formatNumber(item.issued)}</strong> | Total A+I <strong>${formatNumber(item.total_ai)}</strong></td>`;
+        resumeRow.innerHTML = `<td colspan="${columns.length}"><span class="resume-label">Σ Résumé :</span> Planned <strong>${formatNumber(item.planned, item.uom)}</strong> | Assigned <strong>${formatNumber(item.assigned, item.uom)}</strong> | Issued <strong>${formatNumber(item.issued, item.uom)}</strong> | Total A+I <strong>${formatNumber(item.total_ai, item.uom)}</strong></td>`;
         fragment.appendChild(resumeRow);
       }
       tbody.appendChild(fragment);
@@ -1039,7 +1097,7 @@
         ? items
             .map(
               (hu) =>
-                `<div class="hu-item">HU <strong>${hu.hu}</strong> • Batch ${hu.batch} • ${formatNumber(hu.qty)} ${hu.uom} • <span class="hu-status ${hu.status}">${hu.status}</span></div>`
+                `<div class="hu-item">HU <strong>${hu.hu}</strong> • Batch ${hu.batch} • ${formatNumber(hu.qty, hu.uom)} • <span class="hu-status ${hu.status}">${hu.status}</span></div>`
             )
             .join('')
         : '<div class="hu-item empty">Aucun HU visible</div>';
@@ -1278,7 +1336,8 @@ Material Summary
         const uomCell = createCell((row.uom || '').toUpperCase(), 'col-uom');
         tr.appendChild(uomCell);
 
-        tr.appendChild(createCell(formatNumber(row.assigned), 'col-assigned'));
+        const assignedCell = createCell(formatNumber(row.assigned, row.uom), 'col-assigned');
+        tr.appendChild(assignedCell);
 
         const nbCartonsInput = document.createElement('input');
         nbCartonsInput.type = 'number';
@@ -1303,7 +1362,7 @@ Material Summary
         contenuInput.min = '0';
         contenuInput.step = step === 1 ? '1' : '0.001';
         contenuInput.value = row.contenuCarton ? String(row.contenuCarton) : row.packSize ? String(row.packSize) : '';
-        contenuInput.placeholder = row.packSize ? formatNumber(row.packSize) : '';
+        contenuInput.placeholder = row.packSize ? formatNumber(row.packSize, row.uom) : '';
         contenuInput.dataset.field = 'contenuCarton';
         contenuInput.dataset.id = row.id;
         contenuInput.id = `retours-${row.id}-contenu`;
@@ -1335,10 +1394,10 @@ Material Summary
         vracCell.appendChild(vracInput);
         tr.appendChild(vracCell);
 
-        const retourCell = createCell(formatNumber(row.retourHU), 'readonly');
+        const retourCell = createCell(formatNumber(row.retourHU, row.uom), 'readonly');
         tr.appendChild(retourCell);
 
-        const consommeCell = createCell(formatNumber(row.consommeHU), 'readonly consume');
+        const consommeCell = createCell(formatNumber(row.consommeHU, row.uom), 'readonly consume');
         tr.appendChild(consommeCell);
 
         const checkboxCell = createCell('', 'checkbox');
@@ -1366,6 +1425,7 @@ Material Summary
           retourCell,
           consommeCell,
           checkbox,
+          assignedCell,
         };
 
         inputs.push(nbCartonsInput, contenuInput, vracInput);
@@ -1476,17 +1536,29 @@ Material Summary
       row.dom.checkbox.disabled = !row.isValid;
       row.dom.checkbox.checked = row.validated;
 
-      row.dom.retourCell.textContent = formatNumber(row.retourHU);
-      row.dom.consommeCell.textContent = formatNumber(row.consommeHU);
+      if (row.dom.assignedCell) {
+        row.dom.assignedCell.textContent = formatNumber(row.assigned, row.uom);
+      }
+      row.dom.retourCell.textContent = formatNumber(row.retourHU, row.uom);
+      row.dom.consommeCell.textContent = formatNumber(row.consommeHU, row.uom);
+      if (row.dom.contenuInput) {
+        row.dom.contenuInput.placeholder = row.packSize ? formatNumber(row.packSize, row.uom) : '';
+      }
     }
 
     function refreshRetoursSummary() {
       const assigned = state.retours.reduce((sum, row) => sum + (row.assigned || 0), 0);
       const retours = state.retours.reduce((sum, row) => sum + (row.retourHU || 0), 0);
       const consomme = state.retours.reduce((sum, row) => sum + (row.consommeHU || 0), 0);
-      document.getElementById('sumAssigned').textContent = formatNumber(assigned);
-      document.getElementById('sumRetours').textContent = formatNumber(retours);
-      document.getElementById('sumConsomme').textContent = formatNumber(consomme);
+      const freq = {};
+      state.retours.forEach((row) => {
+        const unit = (row.uom || '').toUpperCase();
+        if (unit) freq[unit] = (freq[unit] || 0) + 1;
+      });
+      const summaryUom = Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+      document.getElementById('sumAssigned').textContent = formatNumber(assigned, summaryUom);
+      document.getElementById('sumRetours').textContent = formatNumber(retours, summaryUom);
+      document.getElementById('sumConsomme').textContent = formatNumber(consomme, summaryUom);
       const badge = document.getElementById('gapBadge');
       if (assigned > 0) {
         const diff = ((consomme - assigned) / assigned) * 100;
