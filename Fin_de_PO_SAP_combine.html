@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Fin de PO SAP Parser</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 2rem;
+        background-color: #f5f7fa;
+      }
+      h1 {
+        color: #2c3e50;
+      }
+      textarea {
+        width: 100%;
+        height: 250px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #d9d9d9;
+        border-radius: 6px;
+        box-sizing: border-box;
+        font-family: monospace;
+        resize: vertical;
+      }
+      button {
+        background-color: #2980b9;
+        color: #fff;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+      }
+      button:hover {
+        background-color: #1f6391;
+      }
+      pre {
+        background: #fff;
+        border: 1px solid #dcdcdc;
+        border-radius: 6px;
+        padding: 1rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .result-item {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .result-item:last-child {
+        border-bottom: none;
+      }
+      .label {
+        font-weight: bold;
+        color: #34495e;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Fin de PO SAP &mdash; Parser</h1>
+    <p>Collez ici les données SAP que vous souhaitez analyser.</p>
+    <textarea id="sap-input" placeholder="Collez le rapport SAP ici..."></textarea>
+    <button id="parse">Analyser</button>
+    <section id="results"></section>
+
+    <script>
+      function parseReport(report) {
+        const lines = report.split(/\r?\n/);
+        const materials = [];
+
+        const hasLetters = (s) => /[A-Za-zÀ-ÿ]/.test(s);
+        const isMaterialRow = (line) => {
+          const match = line.match(/^\s*\|(\d+)\s+(.*)$/);
+          if (!match) return false;
+          const code = match[1];
+          const text = match[2].trim();
+          return /^\d{5,6}$/.test(code) && hasLetters(text) && !/Handling Unit|Batch|Lot/i.test(line);
+        };
+
+        let currentMaterial = null;
+
+        for (const rawLine of lines) {
+          const line = rawLine.trimEnd();
+
+          if (!line) {
+            currentMaterial = null;
+            continue;
+          }
+
+          if (isMaterialRow(line)) {
+            const chunks = line
+              .split("|")
+              .slice(1)
+              .map((chunk) => chunk.trim())
+              .filter(Boolean);
+
+            const codeMatch = line.match(/^\s*\|(\d+)/);
+            const material = {
+              code: codeMatch ? codeMatch[1] : "",
+              description: "",
+              raw: [line],
+            };
+
+            if (chunks.length) {
+              const descriptor = chunks[0].trim();
+              if (!material.description && hasLetters(descriptor)) {
+                material.description = descriptor;
+              }
+            }
+
+            materials.push(material);
+            currentMaterial = material;
+            continue;
+          }
+
+          if (currentMaterial) {
+            currentMaterial.raw.push(line);
+            if (!currentMaterial.description && hasLetters(line)) {
+              currentMaterial.description = line.trim();
+            }
+          }
+        }
+
+        return materials.map((material) => ({
+          code: material.code,
+          description: material.description,
+          details: material.raw.join("\n"),
+        }));
+      }
+
+      function renderResults(items) {
+        const container = document.getElementById("results");
+        container.innerHTML = "";
+
+        if (!items.length) {
+          container.innerHTML = "<p>Aucun article détecté.</p>";
+          return;
+        }
+
+        items.forEach((item) => {
+          const wrapper = document.createElement("article");
+          wrapper.className = "result-item";
+
+          wrapper.innerHTML = `
+            <div><span class="label">Code :</span> ${item.code || "N/A"}</div>
+            <div><span class="label">Désignation :</span> ${item.description || "&mdash;"}</div>
+            <details>
+              <summary>Détails</summary>
+              <pre>${item.details.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c])}</pre>
+            </details>
+          `;
+
+          container.appendChild(wrapper);
+        });
+      }
+
+      document.getElementById("parse").addEventListener("click", () => {
+        const text = document.getElementById("sap-input").value;
+        const parsed = parseReport(text);
+        renderResults(parsed);
+      });
+    </script>
+  </body>
+</html>
