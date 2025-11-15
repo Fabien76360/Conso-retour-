@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Extraction SAP YMLR</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 p-6">
+  <h1 class="text-2xl font-bold text-sky-400 mb-4">
+    Extraction du rapport SAP YMLR
+  </h1>
+
+  <input type="file" id="fileInput" accept=".htm,.html"
+         class="file:mr-4 file:rounded-md file:border-0
+                file:bg-sky-600 file:px-4 file:py-2 file:text-sm
+                file:font-semibold file:text-white hover:file:bg-sky-500"/>
+
+  <p id="status" class="mt-4 text-slate-400 text-sm"></p>
+
+  <table id="outputTable"
+         class="mt-6 min-w-full divide-y divide-slate-700 hidden">
+    <thead class="bg-slate-900 text-sky-300 text-sm uppercase">
+      <tr>
+        <th class="px-2 py-2 text-left">Matériel</th>
+        <th class="px-2 py-2 text-left">Description</th>
+        <th class="px-2 py-2 text-right">Quantité</th>
+        <th class="px-2 py-2 text-left">Unité</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-800 text-sm"></tbody>
+  </table>
+
+<script>
+document.getElementById('fileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/html');
+
+  const lines = Array.from(doc.querySelectorAll('tr td'))
+    .map(td => td.textContent.replace(/\u00A0/g, ' ').trim())
+    .filter(t => t && /\d{5,}/.test(t));
+
+  const data = [];
+  const regex = /(\d{5,})\s+([A-Z0-9À-ÿ \-\/\(\)\.]+?)\s+([\d,\.]+)\s+([A-Z]+)/;
+
+  for (const line of lines) {
+    const m = regex.exec(line);
+    if (!m) continue;
+    data.push({
+      mat: m[1],
+      desc: m[2].trim(),
+      qty: m[3].replace(',', '.'),
+      uom: m[4]
+    });
+  }
+
+  const table = document.getElementById('outputTable');
+  const body = table.querySelector('tbody');
+  body.innerHTML = '';
+
+  if (!data.length) {
+    document.getElementById('status').textContent =
+      'Aucune donnée exploitable trouvée.';
+    table.classList.add('hidden');
+    return;
+  }
+
+  for (const row of data) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="px-2 py-1 font-mono">${row.mat}</td>
+      <td class="px-2 py-1">${row.desc}</td>
+      <td class="px-2 py-1 text-right">${row.qty}</td>
+      <td class="px-2 py-1">${row.uom}</td>`;
+    body.appendChild(tr);
+  }
+
+  table.classList.remove('hidden');
+  document.getElementById('status').textContent =
+    `${data.length} lignes extraites.`;
+});
+</script>
+</body>
+</html>
