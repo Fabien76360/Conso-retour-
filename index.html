@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="fr" x-data="app()" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conso &amp; Retour SAP – Fin de PO</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <style>
+        @media (max-width: 768px) {
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-full">
+    <div class="max-w-7xl mx-auto px-4 py-6 space-y-8" x-cloak>
+        <!-- HEADER -->
+        <header class="space-y-2">
+            <h1 class="text-3xl font-bold text-sky-400">Conso &amp; Retour SAP – Fin de PO</h1>
+            <p class="text-slate-300">Application autonome pour préparer les mouvements 261 / 262 depuis un export SAP YMLR.</p>
+        </header>
+
+        <!-- IMPORT BLOCK -->
+        <section class="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6 space-y-4">
+            <h2 class="text-2xl font-semibold text-sky-300">1. Import YMLR &amp; Paramètres opérateur</h2>
+            <div class="grid md:grid-cols-2 gap-4">
+                <label class="flex flex-col gap-2">
+                    <span class="text-sm uppercase tracking-wide text-slate-400">Fichier YMLR (CSV ou HTML)</span>
+                    <input type="file" accept=".csv,.htm,.html" class="file:mr-4 file:rounded-md file:border-0 file:bg-sky-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-sky-500" @change="handleFile($event)" />
+                </label>
+                <label class="flex flex-col gap-2">
+                    <span class="text-sm uppercase tracking-wide text-slate-400">Identifiant Process Order (PO)</span>
+                    <input type="text" class="rounded-md bg-slate-800 border border-slate-700 focus:border-sky-500 focus:ring-sky-500" placeholder="Ex : 000123456789" x-model="poId" />
+                </label>
+                <label class="flex flex-col gap-2">
+                    <span class="text-sm uppercase tracking-wide text-slate-400">Nom opérateur</span>
+                    <input type="text" class="rounded-md bg-slate-800 border border-slate-700 focus:border-sky-500 focus:ring-sky-500" placeholder="Ex : J. Dupont" x-model="userName" />
+                </label>
+                <div class="flex flex-col gap-2">
+                    <span class="text-sm uppercase tracking-wide text-slate-400">Statut import</span>
+                    <div class="rounded-md border border-slate-800 bg-slate-950 px-4 py-3 text-sm">
+                        <template x-if="entries.length === 0">
+                            <span class="text-slate-500">Aucun composant importé pour l'instant.</span>
+                        </template>
+                        <template x-if="entries.length &gt; 0">
+                            <span class="text-emerald-400" x-text="`${entries.length} composant(s) prêt(s) à la saisie.`"></span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <template x-if="messages.length &gt; 0">
+                <ul class="rounded-md border border-sky-700 bg-sky-900/40 px-4 py-3 text-sm text-sky-100">
+                    <template x-for="(message, index) in messages" :key="index">
+                        <li class="leading-6" x-text="message"></li>
+                    </template>
+                </ul>
+            </template>
+            <template x-if="errors.length &gt; 0">
+                <ul class="rounded-md border border-rose-700 bg-rose-900/30 px-4 py-3 text-sm text-rose-100">
+                    <template x-for="(message, index) in errors" :key="`error-${index}`">
+                        <li class="leading-6" x-text="message"></li>
+                    </template>
+                </ul>
+            </template>
+        </section>
+
+        <!-- ENTRY TABLE -->
+        <section class="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6 space-y-6">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <h2 class="text-2xl font-semibold text-sky-300">2. Saisie des restes physiques</h2>
+                <div class="flex items-center gap-3 text-sm text-slate-400">
+                    <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded-full bg-emerald-500"></span> Écart ≤ 2%</span>
+                    <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded-full bg-amber-500"></span> Écart 2-5%</span>
+                    <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded-full bg-rose-600"></span> Écart &gt; 5%</span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-800 text-sm">
+                    <thead class="bg-slate-950 text-xs uppercase tracking-wider text-slate-400">
+                        <tr>
+                            <th class="px-3 py-3 text-left">Composant</th>
+                            <th class="px-3 py-3 text-left">Description</th>
+                            <th class="px-3 py-3 text-right">Qty assignée</th>
+                            <th class="px-3 py-3 text-center">UoM</th>
+                            <th class="px-3 py-3 text-right">Reste saisi</th>
+                            <th class="px-3 py-3 text-right">Conso calculée</th>
+                            <th class="px-3 py-3 text-right">Retour calculé</th>
+                            <th class="px-3 py-3 text-right">Écart %</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800" x-show="entries.length &gt; 0">
+                        <template x-for="entry in entries" :key="entry.rowId">
+                            <tr :class="varianceColor(entry)">
+                                <td class="px-3 py-2 font-mono text-xs md:text-sm" x-text="entry.component_id"></td>
+                                <td class="px-3 py-2 md:text-sm" x-text="entry.desc"></td>
+                                <td class="px-3 py-2 text-right" x-text="formatNumber(entry.qty_assigned)"></td>
+                                <td class="px-3 py-2 text-center" x-text="entry.uom"></td>
+                                <td class="px-3 py-2 text-right">
+                                    <input type="number" step="0.0001" min="0" class="w-28 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-right focus:border-sky-500 focus:ring-sky-500" x-model.number="entry.qty_left" @input="validateEntry(entry)" />
+                                    <p class="mt-1 text-xs text-rose-400" x-show="entry.error" x-text="entry.error"></p>
+                                </td>
+                                <td class="px-3 py-2 text-right font-semibold text-emerald-300" x-text="formatNumber(entry.qty_consumed)"></td>
+                                <td class="px-3 py-2 text-right font-semibold text-sky-300" x-text="formatNumber(entry.qty_return)"></td>
+                                <td class="px-3 py-2 text-right font-semibold" :class="entry.flag ? 'text-rose-400' : 'text-slate-200'" x-text="formatPercent(entry.variance_pct)"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <template x-if="entries.length === 0">
+                <p class="text-sm text-slate-400">Importez un fichier YMLR pour activer la saisie.</p>
+            </template>
+        </section>
+
+        <!-- SYNTHESIS & EXPORT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6 space-y-6">
+            <h2 class="text-2xl font-semibold text-sky-300">3. Synthèse &amp; Export</h2>
+            <div class="grid md:grid-cols-3 gap-4 text-sm">
+                <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">Total composants</p>
+                    <p class="text-2xl font-semibold text-slate-100" x-text="entries.length"></p>
+                </div>
+                <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">Total consommation (261)</p>
+                    <p class="text-2xl font-semibold text-emerald-300" x-text="formatNumber(totalConsumption)"></p>
+                </div>
+                <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">Total retours (262)</p>
+                    <p class="text-2xl font-semibold text-sky-300" x-text="formatNumber(totalReturn)"></p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-800" @click="downloadConsumption" :disabled="!canExport">
+                    Export mouvements 261 (CSV)
+                </button>
+                <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-sky-800" @click="downloadReturn" :disabled="!canExport">
+                    Export mouvements 262 (CSV)
+                </button>
+                <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-800" @click="downloadJournal" :disabled="!canExport">
+                    Export journal (JSON)
+                </button>
+            </div>
+            <p class="text-xs text-slate-400">Les exports sont bloqués tant que les informations opérateur, la PO et les saisies sont incohérentes.</p>
+        </section>
+    </div>
+
+    <!-- CORE LOGIC -->
+    <script>
+        const readFileSmart = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const buf = reader.result;
+                const u8 = new Uint8Array(buf);
+                const hasUtf8Bom = u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF;
+                const hasUtf16leBom = u8[0] === 0xFF && u8[1] === 0xFE;
+                try {
+                    let dec = 'utf-8';
+                    if (hasUtf16leBom) {
+                        dec = 'utf-16le';
+                    } else if (!hasUtf8Bom) {
+                        const zeroRatio = u8.slice(0, 512).filter(b => b === 0).length / Math.min(512, u8.length);
+                        if (zeroRatio > 0.1) {
+                            dec = 'utf-16le';
+                        }
+                    }
+                    resolve(new TextDecoder(dec).decode(buf));
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsArrayBuffer(file);
+        });
+
+        const normalize = (s) => String(s || '')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const headerKeywords = {
+            component: [
+                ['component'], ['material'], ['material', 'number'], ['component', 'id'],
+                ['composant'], ['numero', 'materiel'], ['code', 'article'], ['article']
+            ],
+            description: [
+                ['description'], ['material', 'description'], ['component', 'description'],
+                ['designation'], ['designation', 'materiau'], ['description', 'article']
+            ],
+            qtyAssigned: [
+                ['qty', 'assigned'], ['requirement', 'qty'], ['qty', 'required'],
+                ['quantite', 'attribuee'], ['quantite', 'affectee'], ['qte', 'affectee'],
+                ['besoin'], ['quantite', 'besoin']
+            ],
+            uom: [
+                ['uom'], ['base', 'unit', 'measure'], ['unit'],
+                ['unite'], ['unite', 'base'], ['unite', 'base', 'mesure']
+            ]
+        };
+
+        const splitMonospaceLineToCells = (raw) => {
+            if (!raw) return [];
+            return String(raw)
+                .replace(/&nbsp;/gi, ' ')
+                .replace(/\u00A0|\u202F/g, ' ')
+                .replace(/\t/g, ' ')
+                .split(/\s{2,}/)
+                .map(s => s.trim())
+                .filter(Boolean);
+        };
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('app', () => ({
+                entries: [],
+                poId: '',
+                userName: '',
+                messages: [],
+                errors: [],
+                totalConsumption: 0,
+                totalReturn: 0,
+
+                parseYmlrMonospaceHtml(text) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    const tables = Array.from(doc.querySelectorAll('table'));
+                    if (!tables.length) {
+                        return [];
+                    }
+
+                    const lines = [];
+                    for (const tbl of tables) {
+                        const rows = Array.from(tbl.querySelectorAll('tr'));
+                        for (const tr of rows) {
+                            const cells = Array.from(tr.cells);
+                            if (!cells.length) continue;
+                            const raw = cells.map(c => c.textContent || '').join(' ').trim();
+                            if (raw) {
+                                lines.push(raw);
+                            }
+                        }
+                    }
+                    if (!lines.length) {
+                        return [];
+                    }
+
+                    let headerCells = null;
+                    let headerIdx = -1;
+                    for (let i = 0; i < lines.length; i++) {
+                        const split = splitMonospaceLineToCells(lines[i]);
+                        if (split.length >= 4) {
+                            headerCells = split;
+                            headerIdx = i;
+                            break;
+                        }
+                    }
+                    if (!headerCells) {
+                        return [];
+                    }
+
+                    this.messages.push('En-têtes détectés (monospace) : ' + headerCells.join(' | '));
+                    const mapping = this.resolveHeaderMapping(headerCells);
+                    const hasAll = ['component', 'description', 'qtyAssigned', 'uom'].every(key => mapping[key] != null);
+                    if (!hasAll) {
+                        return [];
+                    }
+
+                    const data = [];
+                    for (let i = headerIdx + 1; i < lines.length; i++) {
+                        const split = splitMonospaceLineToCells(lines[i]);
+                        if (!split.length) continue;
+                        const mapped = this.mapRow(split, mapping);
+                        if (mapped) {
+                            data.push(mapped);
+                        }
+                    }
+                    return data;
+                },
+
+                handleFile(event) {
+                    const file = event.target.files?.[0];
+                    this.entries = [];
+                    this.messages = [];
+                    this.errors = [];
+
+                    if (!file) {
+                        return;
+                    }
+
+                    readFileSmart(file)
+                        .then(content => {
+                            try {
+                                const parsed = this.parseImport(content, file.name);
+                                if (parsed.length === 0) {
+                                    this.errors.push('Aucune ligne exploitable trouvée dans le fichier importé.');
+                                    return;
+                                }
+                                this.entries = parsed.map((row, index) => ({
+                                    ...row,
+                                    rowId: `${row.component_id}-${index}`,
+                                    qty_left: 0,
+                                    qty_consumed: row.qty_assigned,
+                                    qty_return: 0,
+                                    variance_pct: 0,
+                                    flag: false,
+                                    error: ''
+                                }));
+                                this.messages.push(`${this.entries.length} composant(s) chargé(s) avec succès.`);
+                                this.recalculateAll();
+                            } catch (error) {
+                                console.error(error);
+                                this.errors.push('Lecture fichier impossible: ' + (error.message || error));
+                            }
+                        })
+                        .catch(error => {
+                            this.errors.push('Lecture fichier impossible: ' + (error.message || error));
+                        });
+                },
+
+                parseImport(content, filename) {
+                    const text = typeof content === 'string' ? content : content.toString();
+                    const trimmed = text.trim();
+                    if (!trimmed) {
+                        throw new Error('Le fichier est vide.');
+                    }
+
+                    if (/\.csv$/i.test(filename) || trimmed.includes(';')) {
+                        return this.parseCsv(trimmed);
+                    }
+                    if (/<table[\s\S]*?>/i.test(trimmed)) {
+                        return this.parseHtmlTable(trimmed);
+                    }
+                    throw new Error('Format non reconnu. Utilisez un CSV ";" ou un HTML SAP.');
+                },
+
+                parseCsv(text) {
+                    const rows = this.parseSemicolonCsv(text);
+                    if (!rows || rows.length <= 1) {
+                        return [];
+                    }
+                    const headers = rows[0].map(header => header.trim().toLowerCase());
+                    const mapping = this.resolveHeaderMapping(headers);
+                    const dataRows = [];
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (row.length === 0 || row.every(value => value.trim() === '')) {
+                            continue;
+                        }
+                        const mapped = this.mapRow(row, mapping);
+                        if (mapped) {
+                            dataRows.push(mapped);
+                        }
+                    }
+                    return dataRows;
+                },
+
+                parseHtmlTable(text) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    const tables = Array.from(doc.querySelectorAll('table'));
+                    if (!tables.length) {
+                        throw new Error('Aucun tableau détecté dans le fichier HTML.');
+                    }
+
+                    const scoreTable = (tbl) => {
+                        const rows = tbl.tBodies.length
+                            ? Array.from(tbl.tBodies).reduce((acc, tb) => acc + tb.rows.length, 0)
+                            : tbl.rows.length;
+                        const cols = Math.max(0, ...Array.from(tbl.rows).map(r => r.cells.length));
+                        return rows * 10 + cols;
+                    };
+                    const table = tables.sort((a, b) => scoreTable(b) - scoreTable(a))[0];
+
+                    let headerCells = Array.from(table.querySelectorAll('thead tr th'));
+                    if (!headerCells.length) {
+                        const firstRow = Array.from(table.rows).find(r => Array.from(r.cells).some(c => c.textContent.trim() !== ''));
+                        headerCells = firstRow ? Array.from(firstRow.cells) : [];
+                    }
+                    const headers = headerCells.map(c => c.textContent.trim());
+                    if (headers.length) {
+                        this.messages.push('En-têtes détectés : ' + headers.join(' | '));
+                    }
+                    const mapping = this.resolveHeaderMapping(headers);
+
+                    let bodyRows = [];
+                    if (table.tBodies.length) {
+                        bodyRows = Array.from(table.tBodies).flatMap(tb => Array.from(tb.rows));
+                    } else {
+                        bodyRows = Array.from(table.rows);
+                    }
+                    if (bodyRows.length && headerCells.length && bodyRows[0] === headerCells[0]?.parentElement) {
+                        bodyRows = bodyRows.slice(1);
+                    }
+
+                    const dataRows = [];
+                    let oneCellRowCount = 0;
+                    for (const tr of bodyRows) {
+                        let cells = Array.from(tr.cells).map(cell => cell.textContent.trim());
+                        if (!cells.length || cells.every(value => value === '')) {
+                            continue;
+                        }
+                        if (cells.length === 1) {
+                            oneCellRowCount++;
+                            cells = splitMonospaceLineToCells(cells[0]);
+                        }
+                        const mapped = this.mapRow(cells, mapping);
+                        if (mapped) {
+                            dataRows.push(mapped);
+                        }
+                    }
+
+                    const majoritySingleCell = bodyRows.length > 0 && (oneCellRowCount / bodyRows.length) > 0.5;
+                    if (!dataRows.length || majoritySingleCell) {
+                        this.messages.push('Format YMLR « monospace » détecté.');
+                        this.messages.push('Parseur dédié activé pour le format YMLR « monospace ».');
+                        const alt = this.parseYmlrMonospaceHtml(text);
+                        if (alt.length) {
+                            return alt;
+                        }
+                        throw new Error('Aucune ligne exploitable : entêtes introuvables ou colonnes non détectées dans le HTML.');
+                    }
+                    return dataRows;
+                },
+
+                parseSemicolonCsv(text) {
+                    const rows = [];
+                    let current = '';
+                    let inQuotes = false;
+                    let row = [];
+                    for (let i = 0; i < text.length; i++) {
+                        const char = text[i];
+                        const next = text[i + 1];
+                        if (char === '"') {
+                            if (inQuotes && next === '"') {
+                                current += '"';
+                                i++;
+                            } else {
+                                inQuotes = !inQuotes;
+                            }
+                        } else if (char === ';' && !inQuotes) {
+                            row.push(current);
+                            current = '';
+                        } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                            if (current || row.length) {
+                                row.push(current);
+                                rows.push(row);
+                                row = [];
+                                current = '';
+                            }
+                        } else {
+                            current += char;
+                        }
+                    }
+                    if (current || row.length) {
+                        row.push(current);
+                        rows.push(row);
+                    }
+                    return rows;
+                },
+
+                resolveHeaderMapping(headers) {
+                    const mapping = {};
+                    const norm = headers.map(h => normalize(h));
+                    const tryMatch = (h, groups) => groups.find(tokens => tokens.every(t => h.includes(t)));
+
+                    norm.forEach((h, idx) => {
+                        for (const [key, groups] of Object.entries(headerKeywords)) {
+                            if (mapping[key] != null) continue;
+                            if (tryMatch(h, groups)) {
+                                mapping[key] = idx;
+                            }
+                        }
+                    });
+                    return mapping;
+                },
+
+                mapRow(cells, mapping) {
+                    const componentIdx = mapping.component;
+                    const descriptionIdx = mapping.description;
+                    const qtyIdx = mapping.qtyAssigned;
+                    const uomIdx = mapping.uom;
+                    if ([componentIdx, descriptionIdx, qtyIdx, uomIdx].some(index => index == null)) {
+                        return null;
+                    }
+                    if ([componentIdx, descriptionIdx, qtyIdx, uomIdx].some(index => index >= cells.length)) {
+                        return null;
+                    }
+
+                    const component = (cells[componentIdx] ?? '').trim();
+                    const description = (cells[descriptionIdx] ?? '').trim();
+                    const uom = (cells[uomIdx] ?? '').trim();
+                    const qtyAssigned = this.parseNumberLike(cells[qtyIdx]);
+
+                    if (!component || !description || !uom || !Number.isFinite(qtyAssigned)) {
+                        return null;
+                    }
+
+                    return {
+                        component_id: component,
+                        desc: description,
+                        qty_assigned: qtyAssigned,
+                        uom
+                    };
+                },
+
+                updateEntry(entry) {
+                    entry.qty_left = isNaN(entry.qty_left) ? 0 : entry.qty_left;
+                    entry.qty_consumed = Math.max(entry.qty_assigned - entry.qty_left, 0);
+                    entry.qty_return = Math.max(entry.qty_left, 0);
+                    entry.variance_pct = entry.qty_assigned === 0 ? 0 : ((entry.qty_consumed - entry.qty_assigned) / entry.qty_assigned) * 100;
+                    entry.flag = Math.abs(entry.variance_pct) > 2;
+                    this.refreshTotals();
+                },
+
+                validateEntry(entry) {
+                    this.updateEntry(entry);
+                    if (entry.qty_left > entry.qty_assigned) {
+                        entry.error = 'Le reste ne peut pas dépasser la quantité assignée.';
+                    } else {
+                        entry.error = '';
+                    }
+                },
+
+                recalculateAll() {
+                    this.entries.forEach(entry => {
+                        entry.qty_left = 0;
+                        this.updateEntry(entry);
+                    });
+                    this.refreshTotals();
+                },
+
+                refreshTotals() {
+                    this.totalConsumption = this.entries.reduce((sum, entry) => sum + (entry.qty_consumed || 0), 0);
+                    this.totalReturn = this.entries.reduce((sum, entry) => sum + (entry.qty_return || 0), 0);
+                },
+
+                varianceColor(entry) {
+                    if (!entry.flag) {
+                        return 'bg-slate-900 hover:bg-slate-800/60 transition';
+                    }
+                    const absVar = Math.abs(entry.variance_pct);
+                    if (absVar &lt;= 5) {
+                        return 'bg-amber-950/60 hover:bg-amber-900/50 transition';
+                    }
+                    return 'bg-rose-950/60 hover:bg-rose-900/40 transition';
+                },
+
+                formatNumber(value) {
+                    if (typeof value !== 'number' || isNaN(value)) {
+                        return '0';
+                    }
+                    return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 3 }).format(value);
+                },
+
+                formatPercent(value) {
+                    if (!isFinite(value)) {
+                        return '0%';
+                    }
+                    return `${value.toFixed(2)}%`;
+                },
+
+                parseNumberLike(value) {
+                    if (value == null) {
+                        return NaN;
+                    }
+                    let v = String(value)
+                        .replace(/[%]/g, '')
+                        .replace(/\u00A0|\u202F/g, '')
+                        .replace(/\s+/g, '');
+
+                    const lastComma = v.lastIndexOf(',');
+                    const lastDot = v.lastIndexOf('.');
+                    if (lastComma !== -1 && lastDot !== -1) {
+                        if (lastComma > lastDot) {
+                            v = v.replace(/\./g, '');
+                            v = v.replace(',', '.');
+                        } else {
+                            v = v.replace(/,/g, '');
+                        }
+                    } else if (lastComma !== -1) {
+                        v = v.replace(',', '.');
+                    }
+                    const n = parseFloat(v);
+                    return Number.isFinite(n) ? n : NaN;
+                },
+
+                toNumber(value) {
+                    if (typeof value === 'number') {
+                        return value;
+                    }
+                    if (typeof value !== 'string') {
+                        return Number.NaN;
+                    }
+                    return this.parseNumberLike(value);
+                },
+
+                get canExport() {
+                    if (!this.poId || !this.userName || this.entries.length === 0) {
+                        return false;
+                    }
+                    return this.entries.every(entry => !entry.error);
+                },
+
+                ensureExportReady() {
+                    if (!this.canExport) {
+                        this.errors.push('Complétez la PO, l\'opérateur et corrigez les erreurs avant export.');
+                        return false;
+                    }
+                    return true;
+                },
+
+                buildCsv(rows) {
+                    return rows.map(columns => columns.map(value => {
+                        const stringValue = value == null ? '' : String(value);
+                        if (stringValue.includes(';') || stringValue.includes('"') || stringValue.includes('\n')) {
+                            return '"' + stringValue.replace(/"/g, '""') + '"';
+                        }
+                        return stringValue;
+                    }).join(';')).join('\n');
+                },
+
+                triggerDownload(filename, content, mime = 'text/plain') {
+                    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    setTimeout(() => {
+                        URL.revokeObjectURL(link.href);
+                        link.remove();
+                    }, 0);
+                },
+
+                downloadConsumption() {
+                    if (!this.ensureExportReady()) return;
+                    const timestamp = new Date().toISOString();
+                    const rows = this.entries
+                        .filter(entry => entry.qty_consumed &gt; 0)
+                        .map(entry => [
+                            this.poId,
+                            entry.component_id,
+                            entry.qty_consumed.toFixed(4),
+                            entry.uom,
+                            '261',
+                            timestamp
+                        ]);
+                    if (rows.length === 0) {
+                        this.errors.push('Aucune consommation à exporter.');
+                        return;
+                    }
+                    rows.unshift(['po_id', 'component_id', 'qty', 'uom', 'movement', 'timestamp']);
+                    const csv = this.buildCsv(rows);
+                    this.triggerDownload(`consumption_post_${this.poId || 'PO'}.csv`, csv, 'text/csv');
+                },
+
+                downloadReturn() {
+                    if (!this.ensureExportReady()) return;
+                    const timestamp = new Date().toISOString();
+                    const rows = this.entries
+                        .filter(entry => entry.qty_return &gt; 0)
+                        .map(entry => [
+                            this.poId,
+                            entry.component_id,
+                            entry.qty_return.toFixed(4),
+                            entry.uom,
+                            '262',
+                            timestamp
+                        ]);
+                    if (rows.length === 0) {
+                        this.errors.push('Aucun retour à exporter.');
+                        return;
+                    }
+                    rows.unshift(['po_id', 'component_id', 'qty', 'uom', 'movement', 'timestamp']);
+                    const csv = this.buildCsv(rows);
+                    this.triggerDownload(`return_post_${this.poId || 'PO'}.csv`, csv, 'text/csv');
+                },
+
+                downloadJournal() {
+                    if (!this.ensureExportReady()) return;
+                    const timestamp = new Date().toISOString();
+                    const payload = {
+                        po_id: this.poId,
+                        user: this.userName,
+                        generated_at: timestamp,
+                        entries: this.entries.map(entry => ({
+                            component_id: entry.component_id,
+                            description: entry.desc,
+                            qty_assigned: entry.qty_assigned,
+                            qty_left: entry.qty_left,
+                            qty_consumed: entry.qty_consumed,
+                            qty_return: entry.qty_return,
+                            variance_pct: entry.variance_pct,
+                            uom: entry.uom,
+                            flag: entry.flag
+                        }))
+                    };
+                    const json = JSON.stringify(payload, null, 2);
+                    this.triggerDownload(`journal_${this.poId || 'PO'}.json`, json, 'application/json');
+                }
+            }));
+        });
+    </script>
+</body>
+</html>
