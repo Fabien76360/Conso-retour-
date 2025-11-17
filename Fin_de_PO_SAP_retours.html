@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Extractor Fin de PO – SAP TXT · Retours par HU</title>
+  <style>
+    :root {
+      --bg:#0d1117;
+      --surface:#111827;
+      --ink:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22d3ee;
+      --danger:#f87171;
+      --warning:#facc15;
+      --success:#34d399;
+      --grid:#1f2937;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--grid);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    main {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 20px 120px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--grid);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 12px 24px rgba(15,23,42,0.25);
+    }
+    .topline {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 8px;
+    }
+    .meta-item {
+      background: rgba(148,163,184,0.08);
+      border: 1px solid rgba(148,163,184,0.16);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    .meta-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    button, .export-btn {
+      appearance: none;
+      border: 1px solid rgba(34,211,238,0.3);
+      background: rgba(34,211,238,0.08);
+      color: var(--ink);
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+    button:hover, .export-btn:hover {
+      border-color: rgba(34,211,238,0.6);
+      background: rgba(34,211,238,0.15);
+    }
+    .export-btn {
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    thead th {
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 12px;
+      background: rgba(15,23,42,0.65);
+      border-bottom: 1px solid var(--grid);
+      position: sticky;
+      top: 96px;
+      z-index: 5;
+    }
+    tbody tr {
+      border-bottom: 1px solid rgba(148,163,184,0.08);
+      transition: background 0.2s ease, opacity 0.2s ease;
+    }
+    tbody tr.validated {
+      opacity: 0.5;
+    }
+    td {
+      padding: 12px;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+    tbody tr:hover {
+      background: rgba(148,163,184,0.05);
+    }
+    input[type="number"] {
+      width: 100%;
+      background: rgba(15,23,42,0.6);
+      border: 1px solid rgba(148,163,184,0.25);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--ink);
+      font-size: 14px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34,211,238,0.25);
+    }
+    input.invalid {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 2px rgba(248,113,113,0.25);
+    }
+    input::placeholder {
+      color: rgba(148,163,184,0.6);
+    }
+    .readonly {
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .readonly.consume {
+      color: var(--success);
+    }
+    .checkbox {
+      display: flex;
+      justify-content: center;
+    }
+    .checkbox input {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--accent);
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .row-error td {
+      background: rgba(248,113,113,0.08);
+    }
+    .tooltip {
+      position: relative;
+    }
+    .tooltip::after {
+      content: attr(data-msg);
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: max-content;
+      max-width: 220px;
+      padding: 6px 8px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #0f172a;
+      background: var(--danger);
+      border-radius: 6px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 9;
+    }
+    .tooltip.show::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(15,23,42,0.92);
+      border-top: 1px solid var(--grid);
+      padding: 16px 20px;
+    }
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 14px;
+    }
+    .badge {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .badge.ok {
+      background: rgba(52,211,153,0.2);
+      color: var(--success);
+    }
+    .badge.warn {
+      background: rgba(250,204,21,0.2);
+      color: var(--warning);
+    }
+    .badge.alert {
+      background: rgba(248,113,113,0.2);
+      color: var(--danger);
+    }
+    @media (max-width: 960px) {
+      thead th { font-size: 12px; }
+      td { font-size: 13px; }
+      .actions { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="topline">
+      <div>
+        <h1>Saisie retours par HU</h1>
+        <p class="sub">Extractor Fin de PO – SAP TXT · Vue opérateur pour saisir les retours fin de lot.</p>
+      </div>
+      <div class="actions">
+        <button id="btnExportReturns" type="button">Exporter retours (CSV)</button>
+        <button id="btnExportConsumption" type="button">Exporter consommations (CSV)</button>
+        <button id="btnExportJournal" type="button">Exporter journal (JSON)</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="container">
+      <div class="card">
+        <div class="meta" id="meta"></div>
+        <table aria-describedby="meta">
+          <thead>
+            <tr>
+              <th scope="col">HU</th>
+              <th scope="col">Assigné</th>
+              <th scope="col">Nb de cartons</th>
+              <th scope="col">Contenu/carton</th>
+              <th scope="col">Unités en vrac</th>
+              <th scope="col">Total retour</th>
+              <th scope="col">Consommé</th>
+              <th scope="col">Valider</th>
+            </tr>
+          </thead>
+          <tbody id="huRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <footer>
+    <div class="footer-content">
+      <div id="footerTotals">Σ Assigné 0 • Σ Retours 0 • Σ Consommé 0</div>
+      <div id="footerBadge" class="badge ok">Écart 0%</div>
+    </div>
+  </footer>
+
+  <script>
+  const hus = [
+    { po:"PO1048956", material:"302182", desc:"ETUIS 20X", hu:"0001234567", uom:"EA", assigned:1200, packSize:220 },
+    { po:"PO1048956", material:"302182", desc:"ETUIS 20X", hu:"0001234568", uom:"EA", assigned:980,  packSize:220 },
+    { po:"PO1048956", material:"302182", desc:"ETUIS 20X", hu:"0001234569", uom:"EA", assigned:440,  packSize:220 }
+  ];
+
+  const state = new Map();
+
+  function initMeta() {
+    if (!hus.length) return;
+    const first = hus[0];
+    const metaEl = document.getElementById('meta');
+    const uniquePO = [...new Set(hus.map(h => h.po))];
+    const uniqueMat = [...new Set(hus.map(h => h.material))];
+    const uniqueDesc = [...new Set(hus.map(h => h.desc))];
+    const uniqueUom = [...new Set(hus.map(h => h.uom))];
+    metaEl.innerHTML = `
+      <div class="meta-item"><span>Process order</span>${uniquePO.join(', ')}</div>
+      <div class="meta-item"><span>Material</span>${uniqueMat.join(', ')}</div>
+      <div class="meta-item"><span>Description</span>${uniqueDesc.join(', ')}</div>
+      <div class="meta-item"><span>UoM</span>${uniqueUom.join(', ')}</div>
+      <div class="meta-item"><span>Total HU</span>${hus.length}</div>
+    `;
+  }
+
+  function createRow(huData, index) {
+    const tbody = document.getElementById('huRows');
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-hu', huData.hu);
+
+    const allowDecimal = huData.uom !== 'EA';
+    const step = allowDecimal ? '0.001' : '1';
+
+    const nbCartonsId = `nbCartons_${index}`;
+    const contenuId = `contenu_${index}`;
+    const vracId = `vrac_${index}`;
+    const initialContenu = typeof huData.packSize === 'number' ? huData.packSize : 0;
+    const checkboxId = `valid_${index}`;
+
+    tr.innerHTML = `
+      <td headers="" data-type="hu">${huData.hu}</td>
+      <td>${formatNumber(huData.assigned)}</td>
+      <td class="tooltip"><label class="sr-only" for="${nbCartonsId}">Nb de cartons pour ${huData.hu}</label><input id="${nbCartonsId}" type="number" min="0" step="${step}" inputmode="decimal" aria-label="Nb de cartons pour ${huData.hu}" /></td>
+      <td class="tooltip"><label class="sr-only" for="${contenuId}">Contenu par carton pour ${huData.hu}</label><input id="${contenuId}" type="number" min="0" step="${step}" inputmode="decimal" aria-label="Contenu par carton pour ${huData.hu}" value="${Number.isFinite(initialContenu) ? initialContenu : ''}" /></td>
+      <td class="tooltip"><label class="sr-only" for="${vracId}">Unités en vrac pour ${huData.hu}</label><input id="${vracId}" type="number" min="0" step="${step}" inputmode="decimal" aria-label="Unités en vrac pour ${huData.hu}" /></td>
+      <td class="readonly" data-role="retour">0</td>
+      <td class="readonly consume" data-role="consomme">${formatNumber(huData.assigned)}</td>
+      <td class="checkbox"><input id="${checkboxId}" type="checkbox" disabled aria-label="Valider la ligne ${huData.hu}" /></td>
+    `;
+
+    tbody.appendChild(tr);
+
+    const nbCartonsInput = tr.querySelector(`#${nbCartonsId}`);
+    const contenuInput = tr.querySelector(`#${contenuId}`);
+    const vracInput = tr.querySelector(`#${vracId}`);
+    const checkbox = tr.querySelector(`#${checkboxId}`);
+
+    const rowState = {
+      nbCartons: 0,
+      nbCartonsEmpty: true,
+      contenu: initialContenu,
+      contenuEmpty: !(typeof huData.packSize === 'number'),
+      vrac: 0,
+      vracEmpty: true,
+      retour: 0,
+      consomme: huData.assigned,
+      valid: false,
+      allowDecimal
+    };
+    state.set(huData.hu, rowState);
+
+    nbCartonsInput.addEventListener('input', () => handleInput(huData, nbCartonsInput, 'nbCartons'));
+    contenuInput.addEventListener('input', () => handleInput(huData, contenuInput, 'contenu'));
+    vracInput.addEventListener('input', () => handleInput(huData, vracInput, 'vrac'));
+
+    [nbCartonsInput, contenuInput, vracInput].forEach((inputEl, idx, arr) => {
+      inputEl.addEventListener('keydown', (ev) => handleKeyNav(ev, inputEl, arr));
+      inputEl.addEventListener('blur', () => validateRow(huData));
+      inputEl.addEventListener('focus', () => inputEl.select());
+    });
+
+    checkbox.addEventListener('change', () => {
+      const checked = checkbox.checked;
+      tr.classList.toggle('validated', checked);
+      rowState.valid = checked;
+    });
+  }
+
+  function handleKeyNav(ev, current, group) {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      const inputs = Array.from(document.querySelectorAll('tbody input[type="number"]'));
+      const idx = inputs.indexOf(current);
+      if (idx > -1) {
+        const next = inputs[idx + 1] || inputs[0];
+        next.focus();
+        next.select();
+      }
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault();
+      current.value = '';
+      current.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  function handleInput(huData, inputEl, field) {
+    const rowState = state.get(huData.hu);
+    if (!rowState) return;
+
+    clearInvalid(inputEl);
+    const { value, empty, invalid, message } = readNumeric(inputEl, rowState.allowDecimal);
+
+    if (invalid) {
+      markInvalid(inputEl, message || 'Valeur numérique invalide');
+      disableValidation(huData);
+      return;
+    }
+
+    rowState[field] = value;
+    rowState[field + 'Empty'] = empty;
+
+    validateRow(huData, inputEl);
+    updateRow(huData);
+    updateFooter();
+  }
+
+  function readNumeric(inputEl, allowDecimal) {
+    const raw = (inputEl.value || '').trim();
+    if (!raw) {
+      return { value: 0, empty: true, invalid: false };
+    }
+    const normalized = raw.replace(/,/g, '.');
+    const num = Number(normalized);
+    if (Number.isNaN(num)) {
+      return { value: 0, empty: true, invalid: true, message: 'Entrée non numérique' };
+    }
+    if (num < 0) {
+      return { value: 0, empty: false, invalid: true, message: 'Valeur négative interdite' };
+    }
+    if (!allowDecimal) {
+      if (!Number.isInteger(num)) {
+        return { value: 0, empty: false, invalid: true, message: 'Valeur entière requise' };
+      }
+      return { value: num, empty: false, invalid: false };
+    }
+    return { value: num, empty: false, invalid: false };
+  }
+
+  function updateRow(huData) {
+    const rowState = state.get(huData.hu);
+    const tr = document.querySelector(`tr[data-hu="${huData.hu}"]`);
+    if (!rowState || !tr) return;
+
+    const retour = rowState.nbCartons * rowState.contenu + rowState.vrac;
+    rowState.retour = roundValue(retour, rowState.allowDecimal);
+
+    const consommeRaw = huData.assigned - rowState.retour;
+    const consomme = consommeRaw < 0 ? 0 : consommeRaw;
+    rowState.consomme = roundValue(consomme, rowState.allowDecimal);
+
+    tr.querySelector('[data-role="retour"]').textContent = formatNumber(rowState.retour);
+    tr.querySelector('[data-role="consomme"]').textContent = formatNumber(rowState.consomme);
+  }
+
+  function validateRow(huData, triggerInput) {
+    const tr = document.querySelector(`tr[data-hu="${huData.hu}"]`);
+    const rowState = state.get(huData.hu);
+    if (!tr || !rowState) return;
+
+    const inputs = Array.from(tr.querySelectorAll('input[type="number"]'));
+    inputs.forEach(clearInvalid);
+    tr.classList.remove('row-error');
+
+    let valid = true;
+    const retour = rowState.nbCartons * rowState.contenu + rowState.vrac;
+
+    const nbCartonsInput = inputs[0];
+    const contenuInput = inputs[1];
+    if (!rowState.nbCartonsEmpty && nbCartonsInput.value !== '' && Number(rowState.nbCartons) > 0 && (rowState.contenuEmpty || contenuInput.value === '')) {
+      markInvalid(contenuInput, 'Contenu/carton requis');
+      valid = false;
+    }
+
+    if (retour > huData.assigned + 1e-9) {
+      inputs.forEach(inp => markInvalid(inp, "Retour supérieur à l'assigné"));
+      tr.classList.add('row-error');
+      valid = false;
+    }
+
+    const checkbox = tr.querySelector('input[type="checkbox"]');
+    checkbox.disabled = !valid;
+    if (!valid) {
+      checkbox.checked = false;
+      tr.classList.remove('validated');
+    }
+    rowState.valid = checkbox.checked;
+    return valid;
+  }
+
+  function markInvalid(inputEl, message) {
+    inputEl.classList.add('invalid');
+    const wrapper = inputEl.parentElement;
+    if (wrapper) {
+      wrapper.dataset.msg = message;
+      wrapper.classList.add('show');
+    }
+  }
+
+  function clearInvalid(inputEl) {
+    inputEl.classList.remove('invalid');
+    if (inputEl.parentElement) {
+      inputEl.parentElement.classList.remove('show');
+      delete inputEl.parentElement.dataset.msg;
+    }
+  }
+
+  function disableValidation(huData) {
+    const tr = document.querySelector(`tr[data-hu="${huData.hu}"]`);
+    if (!tr) return;
+    const checkbox = tr.querySelector('input[type="checkbox"]');
+    checkbox.disabled = true;
+    checkbox.checked = false;
+    tr.classList.remove('validated');
+    const rowState = state.get(huData.hu);
+    if (rowState) {
+      rowState.valid = false;
+    }
+  }
+
+  function updateFooter() {
+    let sumAssigned = 0;
+    let sumRetours = 0;
+    let sumConsomme = 0;
+
+    hus.forEach(hu => {
+      sumAssigned += hu.assigned;
+      const rowState = state.get(hu.hu);
+      if (rowState) {
+        sumRetours += rowState.retour;
+        sumConsomme += rowState.consomme;
+      }
+    });
+
+    const footerText = `Σ Assigné ${formatNumber(sumAssigned)} • Σ Retours ${formatNumber(sumRetours)} • Σ Consommé ${formatNumber(sumConsomme)}`;
+    document.getElementById('footerTotals').textContent = footerText;
+
+    let percent = 0;
+    if (sumAssigned !== 0) {
+      percent = ((sumConsomme - sumAssigned) / sumAssigned) * 100;
+    }
+    const rounded = Math.round(percent * 100) / 100;
+    const badge = document.getElementById('footerBadge');
+    badge.textContent = `Écart ${rounded.toFixed(2)}%`;
+    badge.classList.remove('ok','warn','alert');
+    const abs = Math.abs(rounded);
+    if (abs <= 2) {
+      badge.classList.add('ok');
+    } else if (abs <= 5) {
+      badge.classList.add('warn');
+    } else {
+      badge.classList.add('alert');
+    }
+  }
+
+  function formatNumber(value) {
+    if (typeof value !== 'number' || Number.isNaN(value)) return '0';
+    const formatter = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
+    return formatter.format(value);
+  }
+
+  function roundValue(value, allowDecimal) {
+    if (!allowDecimal) {
+      return Math.max(0, Math.round(value));
+    }
+    return Math.max(0, Math.round(value * 1000) / 1000);
+  }
+
+  function gatherRows() {
+    return hus.map(hu => {
+      const rowState = state.get(hu.hu) || { nbCartons:0, contenu:hu.packSize||0, vrac:0, retour:0, consomme:hu.assigned, valid:false };
+      return {
+        ...hu,
+        nbCartons: rowState.nbCartons,
+        contenuCarton: rowState.contenu,
+        vrac: rowState.vrac,
+        retourHU: rowState.retour,
+        consommeHU: rowState.consomme,
+        ligneValidee: rowState.valid
+      };
+    });
+  }
+
+  function exportCSV(filename, rows, key) {
+    const head = 'po,material,hu,uom,' + key + '\n';
+    const lines = rows.map(row => [row.po, row.material, row.hu, row.uom, row[key]]
+      .map(v => typeof v === 'number' ? String(v).replace('.', ',') : '"' + String(v).replace(/"/g,'""') + '"')
+      .join(','));
+    const csv = head + lines.join('\n');
+    triggerDownload(filename, new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  }
+
+  function exportJSON(filename, rows) {
+    const payload = rows.map(row => ({
+      timestampISO: new Date().toISOString(),
+      user: 'operator',
+      po: row.po,
+      material: row.material,
+      hu: row.hu,
+      uom: row.uom,
+      assigned: row.assigned,
+      nbCartons: row.nbCartons,
+      contenuCarton: row.contenuCarton,
+      vrac: row.vrac,
+      retourHU: row.retourHU,
+      consommeHU: row.consommeHU,
+      ligneValidee: row.ligneValidee
+    }));
+    triggerDownload(filename, new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+  }
+
+  function triggerDownload(filename, blob) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function attachExports() {
+    document.getElementById('btnExportReturns').addEventListener('click', () => {
+      const rows = gatherRows();
+      exportCSV('return_post.csv', rows, 'retourHU');
+    });
+    document.getElementById('btnExportConsumption').addEventListener('click', () => {
+      const rows = gatherRows();
+      exportCSV('consumption_post.csv', rows, 'consommeHU');
+    });
+    document.getElementById('btnExportJournal').addEventListener('click', () => {
+      const rows = gatherRows();
+      exportJSON('journal.json', rows);
+    });
+  }
+
+  function init() {
+    initMeta();
+    hus.forEach((hu, idx) => createRow(hu, idx));
+    updateFooter();
+    attachExports();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
