@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-gray-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conso / Retour – Fin de PO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .table-scroll::-webkit-scrollbar {
+        height: 8px;
+      }
+      .table-scroll::-webkit-scrollbar-thumb {
+        background-color: rgba(107, 114, 128, 0.4);
+        border-radius: 9999px;
+      }
+    </style>
+  </head>
+  <body class="h-full">
+    <div class="min-h-screen p-6">
+      <header class="mb-6 rounded-2xl bg-white p-6 shadow">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 class="text-2xl font-semibold text-gray-900">
+              Conso / Retour – Fin de PO
+            </h1>
+            <p class="mt-1 text-sm text-gray-500">
+              Maquette interactive pour le suivi terrain
+            </p>
+          </div>
+          <div class="grid grid-cols-3 gap-4 text-sm text-gray-600">
+            <div>
+              <p class="font-semibold text-gray-800">PO</p>
+              <p>1048956</p>
+            </div>
+            <div>
+              <p class="font-semibold text-gray-800">Produit</p>
+              <p>FRAXIPARINE 0.6 ML</p>
+            </div>
+            <div>
+              <p class="font-semibold text-gray-800">Batch</p>
+              <p>8564</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <section class="flex flex-col gap-6">
+          <div class="rounded-2xl bg-white p-6 shadow">
+            <h2 class="text-lg font-semibold text-gray-900">Import fichier SAP (TXT ou HTML)</h2>
+            <div
+              id="dropZone"
+              class="mt-4 flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50 p-8 text-center transition"
+            >
+              <p class="text-sm text-indigo-700">
+                Glissez-déposez votre fichier TXT ou HTML ou utilisez le sélecteur ci-dessous.
+              </p>
+              <label
+                for="file-input"
+                class="inline-flex cursor-pointer items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500"
+              >
+                Choisir un fichier
+              </label>
+              <input id="file-input" type="file" accept=".txt,.htm,.html" class="hidden" />
+              <p id="fileStatus" class="text-xs text-gray-500">Aucun fichier importé pour le moment.</p>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-white p-6 shadow">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <h2 class="text-lg font-semibold text-gray-900">Vue opérateur</h2>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  id="exportCsv"
+                  class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-indigo-300 hover:text-indigo-600"
+                >
+                  Export CSV
+                </button>
+                <button
+                  id="exportJson"
+                  class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-indigo-300 hover:text-indigo-600"
+                >
+                  Export JSON
+                </button>
+                <button
+                  id="resetData"
+                  class="rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
+                  type="button"
+                >
+                  Remettre à zéro
+                </button>
+                <button
+                  id="validatePo"
+                  class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500"
+                  >
+                  Valider le PO
+                </button>
+              </div>
+            </div>
+
+            <div class="table-scroll mt-6 overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th class="px-3 py-3">Material</th>
+                    <th class="px-3 py-3">Description</th>
+                    <th class="px-3 py-3 text-right">Assigned</th>
+                    <th class="px-3 py-3 text-right">Issued</th>
+                    <th class="px-3 py-3 text-right">Total</th>
+                    <th class="px-3 py-3 text-right">Retour saisi</th>
+                    <th class="px-3 py-3 text-right">Consommé (auto)</th>
+                    <th class="px-3 py-3 text-right">Δ vs Assigned</th>
+                  </tr>
+                </thead>
+                <tbody id="materialsBody" class="divide-y divide-gray-100 bg-white"></tbody>
+                <tfoot class="bg-gray-50">
+                  <tr class="text-sm font-semibold text-gray-700">
+                    <td class="px-3 py-3" colspan="2">Totaux</td>
+                    <td class="px-3 py-3 text-right" id="totalAssigned">0</td>
+                    <td class="px-3 py-3 text-right" id="totalIssued">0</td>
+                    <td class="px-3 py-3 text-right" id="totalOverall">0</td>
+                    <td class="px-3 py-3 text-right" id="totalRetour">0</td>
+                    <td class="px-3 py-3 text-right" id="totalConsomme">0</td>
+                    <td class="px-3 py-3 text-right" colspan="1"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <aside class="flex flex-col gap-6">
+          <div class="grid gap-4">
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p class="text-sm font-medium text-gray-500">Planifié</p>
+              <p id="tilePlanifie" class="mt-2 text-2xl font-semibold text-gray-900">0</p>
+            </div>
+            <div class="rounded-2xl border border-indigo-200 bg-indigo-50 p-5 shadow-sm">
+              <p class="text-sm font-medium text-indigo-600">Produit</p>
+              <p id="tileProduit" class="mt-2 text-2xl font-semibold text-indigo-900">0</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p class="text-sm font-medium text-gray-500">Consommé</p>
+              <p id="tileConsomme" class="mt-2 text-2xl font-semibold text-gray-900">0</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p class="text-sm font-medium text-gray-500">Retour</p>
+              <p id="tileRetour" class="mt-2 text-2xl font-semibold text-gray-900">0</p>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-white p-6 shadow">
+            <h2 class="text-lg font-semibold text-gray-900">Règles d'affichage</h2>
+            <ul class="mt-4 list-disc space-y-2 pl-5 text-sm text-gray-600">
+              <li>Le champ "Retour saisi" est modifiable par l'opérateur.</li>
+              <li>Consommé = Assigned − Retour (valeur minimum à 0).</li>
+              <li>
+                Δ vs Assigned affiche la déviation en % (en vert si |Δ| ≤ 2 %, sinon en rouge).
+              </li>
+              <li>Totaux mis à jour dynamiquement avec formatage fr-FR.</li>
+            </ul>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script>
+      const baseData = [
+        {
+          id: "000123451",
+          desc: "CARTON SECONDARY 1",
+          planned: 16530,
+          assigned: 2160,
+          issued: 100,
+          total: 2060,
+          retour: 100,
+        },
+        {
+          id: "000123452",
+          desc: "ETIQUETTES PRIMAIRES",
+          planned: 10000,
+          assigned: 9800,
+          issued: 0,
+          total: 9800,
+          retour: 0,
+        },
+        {
+          id: "000123453",
+          desc: "BOUTEILLES VERRE 0.6",
+          planned: 16530,
+          assigned: 16200,
+          issued: 0,
+          total: 16200,
+          retour: 0,
+        },
+      ];
+
+      const isLikelyHTML = (t) => /<[^>]+>/.test(String(t));
+      const isValidMaterialId = (s) => /^\d{6,18}$/.test(String(s).trim());
+      const looksLikeHeaderNoise = (s) =>
+        /^(ASPN|ASPEN|Printed|Report|Material|MATERIAL|Page|Total|Description)$/i.test(String(s).trim());
+      const sanitizeMaterialId = (value) => String(value ?? "").replace(/[^0-9]/g, "").trim();
+      const extractMaterialFromLine = (line) => {
+        if (!line) return null;
+        const m = line.match(/(\d{6,18})/);
+        if (!m) return null;
+        const rawId = m[1];
+        const id = sanitizeMaterialId(rawId);
+        if (!isValidMaterialId(id)) return null;
+        const rest = line.slice(m.index + rawId.length).trim();
+        return { id, rest };
+      };
+
+      const fmt = (value) =>
+        new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(
+          Number(value) || 0
+        );
+
+      const fmtPercent = (value) =>
+        Number.isFinite(value)
+          ? new Intl.NumberFormat("fr-FR", {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            }).format(value)
+          : "0,0";
+
+      const clampNonNeg = (value) => (Number.isNaN(value) ? 0 : Math.max(0, value));
+
+      const percentDeviation = (value, reference) => {
+        if (!reference) return 0;
+        return ((value - reference) / reference) * 100;
+      };
+
+      const parseNumber = (value) => {
+        if (value === undefined || value === null) return 0;
+        let normalized = String(value).trim();
+        if (!normalized) return 0;
+        normalized = normalized
+          .replace(/[\s\u00a0']/g, "")
+          .replace(/−/g, "-");
+        const hasComma = normalized.includes(",");
+        const hasDot = normalized.includes(".");
+        if (hasComma && hasDot) {
+          normalized = normalized.replace(/\./g, "").replace(/,/g, ".");
+        } else if (hasComma) {
+          normalized = normalized.replace(/,/g, ".");
+        } else if (hasDot) {
+          const parts = normalized.split(".");
+          if (parts.length > 2) {
+            normalized = parts.join("");
+          } else if (parts[parts.length - 1].length === 3 && parts.slice(0, -1).every((chunk) => chunk.length === 3 || chunk.length === 1)) {
+            normalized = parts.join("");
+          }
+        }
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : Number.NaN;
+      };
+
+      const splitCells = (line) => {
+        const normalized = line.trim();
+        if (!normalized) return [];
+        const explicitSeparators = [";", "\t", "|"];
+        for (const separator of explicitSeparators) {
+          if (normalized.includes(separator)) {
+            return normalized.split(separator).map((cell) => cell.trim());
+          }
+        }
+        if (normalized.includes(",")) {
+          const commaCells = normalized.split(",").map((cell) => cell.trim());
+          if (commaCells.length >= 6) return commaCells;
+        }
+        const doubleSpaceCells = normalized.split(/\s{2,}/).map((cell) => cell.trim());
+        if (doubleSpaceCells.length >= 6) return doubleSpaceCells;
+        return normalized.split(/\s+/).map((cell) => cell.trim());
+      };
+
+      const isNumericToken = (value) => {
+        if (value === undefined || value === null) return false;
+        const normalized = String(value).trim();
+        if (!normalized) return false;
+        if (!/\d/.test(normalized)) return false;
+        return Number.isFinite(parseNumber(normalized));
+      };
+
+      const normalizeLine = (line) => {
+        const extracted = extractMaterialFromLine(line);
+        if (!extracted) return null;
+
+        const { id, rest } = extracted;
+        const rawCells = splitCells(rest).map((cell) => cell.replace(/^[;,:|\-]+/, "").trim());
+        const trimmedCells = rawCells.filter((cell) => cell.length);
+
+        if (trimmedCells.length < 3) {
+          const fallback = rest.replace(/\s{2,}/g, " ").trim();
+          if (fallback && fallback !== rest) {
+            const cells2 = splitCells(fallback)
+              .map((cell) => cell.replace(/^[;,:|\-]+/, "").trim())
+              .filter(Boolean);
+            if (cells2.length >= 3) {
+              trimmedCells.splice(0, trimmedCells.length, ...cells2);
+            }
+          }
+        }
+
+        const numericValues = [];
+        let idx = trimmedCells.length - 1;
+        while (idx >= 0 && numericValues.length < 5) {
+          const token = trimmedCells[idx];
+          if (isNumericToken(token)) {
+            numericValues.unshift(token);
+            idx -= 1;
+            continue;
+          }
+          if (/^[-–—]$/u.test(token)) {
+            idx -= 1;
+            continue;
+          }
+          break;
+        }
+
+        if (!numericValues.length) return null;
+
+        const descriptionParts = trimmedCells.slice(0, trimmedCells.length - numericValues.length);
+        let desc = descriptionParts.join(" ") || "";
+        desc = desc.replace(/\s{2,}/g, " ").trim();
+        if (!desc) desc = "—";
+
+        const assignValues = (values) =>
+          values.map((value) => {
+            const parsed = parseNumber(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+          });
+        let plannedValue = 0;
+        let assignedValue = 0;
+        let issuedValue = 0;
+        let totalValue = 0;
+        let retourValue = 0;
+
+        if (numericValues.length >= 5) {
+          const [planned, assigned, issued, total, retour] = assignValues(numericValues.slice(-5));
+          plannedValue = planned;
+          assignedValue = assigned;
+          issuedValue = issued;
+          totalValue = total;
+          retourValue = retour;
+        } else if (numericValues.length === 4) {
+          const [assigned, issued, total, retour] = assignValues(numericValues);
+          plannedValue = assigned;
+          assignedValue = assigned;
+          issuedValue = issued;
+          totalValue = total;
+          retourValue = retour;
+        } else if (numericValues.length === 3) {
+          const [assigned, issued, total] = assignValues(numericValues);
+          plannedValue = assigned;
+          assignedValue = assigned;
+          issuedValue = issued;
+          totalValue = total;
+          retourValue = 0;
+        } else if (numericValues.length === 2) {
+          const [assigned, total] = assignValues(numericValues);
+          plannedValue = assigned || total;
+          assignedValue = assigned;
+          issuedValue = 0;
+          totalValue = total;
+          retourValue = 0;
+        } else {
+          const [assigned] = assignValues(numericValues);
+          plannedValue = assigned;
+          assignedValue = assigned;
+          issuedValue = 0;
+          totalValue = assigned;
+          retourValue = 0;
+        }
+
+        if (!Number.isFinite(assignedValue) || !Number.isFinite(totalValue)) return null;
+
+        return {
+          id,
+          desc,
+          planned: plannedValue,
+          assigned: assignedValue,
+          issued: issuedValue,
+          total: totalValue,
+          retour: Math.min(clampNonNeg(retourValue), assignedValue),
+        };
+      };
+
+      const preprocessLines = (text) => {
+        const raw = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+
+        const merged = [];
+        let acc = "";
+        for (const line of raw) {
+          const candidate = acc ? `${acc} ${line}` : line;
+          if (/\d{6,}/.test(candidate)) {
+            merged.push(candidate);
+            acc = "";
+          } else if (candidate.length < 80) {
+            acc = candidate;
+          } else {
+            merged.push(candidate);
+            acc = "";
+          }
+        }
+        if (acc) merged.push(acc);
+        return merged;
+      };
+
+      const parseTxtContent = (text) => {
+        const lines = preprocessLines(text);
+
+        let startIndex = 0;
+        const first = (lines[0] || "").toLowerCase();
+        if (first.includes("material") && first.includes("description")) startIndex = 1;
+
+        const rows = [];
+        let skipped = 0;
+        for (let i = startIndex; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.length < 5) continue;
+          if (/^(ASPN|ASPEN|Printed|Report|Page)/i.test(line)) {
+            skipped++;
+            continue;
+          }
+
+          const row = normalizeLine(line);
+          if (row) rows.push(row);
+          else skipped++;
+        }
+
+        if (!rows.length) {
+          throw new Error(`Impossible de détecter des lignes valides dans le fichier (${skipped} lignes ignorées).`);
+        }
+        return rows;
+      };
+
+      // === PATCH #2 : utils et parseurs communs TXT/HTML ===
+
+      if (typeof preprocessLines !== "function") {
+        window.preprocessLines = (txt) =>
+          String(txt)
+            .split(/\r?\n/)
+            .map((l) => l.replace(/\u00A0/g, " ").replace(/\s{2,}/g, " ").trim())
+            .filter(Boolean);
+      }
+      if (typeof normalizeLine !== "function") {
+        window.normalizeLine = (line) => {
+          const s = String(line).replace(/\s{2,}/g, " ").trim();
+          if (
+            /^(ASPN|ASPEN|Printed|Report|Selection|Page|Requester|Variant|Material Summary|Manufacturing Operation Summary|Handling Unit Information|Output Material|Output Batch Number|Planned Quantity|Actual Quantity|Yield)/i.test(
+              s
+            )
+          ) {
+            return null;
+          }
+          const qtyUomRe = /([-+]?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)[ ]*(EA|KG|M|TH)\b/;
+          if (!qtyUomRe.test(s)) return null;
+
+          const parts = s.split(/\s+/);
+          const id = parts[0];
+          if (!/^[A-Z0-9]{3,}$/i.test(id) || /^\d{1,4}$/.test(id)) return null;
+
+          const descTokens = [];
+          for (let i = 1; i < parts.length; i++) {
+            const seg = `${parts[i]} ${parts[i + 1] || ""}`;
+            if (qtyUomRe.test(seg)) break;
+            descTokens.push(parts[i]);
+          }
+          const desc = descTokens.join(" ").trim();
+
+          const matches = [...s.matchAll(qtyUomRe)].slice(0, 4);
+          const mapOrder = ["planned", "assigned", "issued", "total"];
+          const out = {
+            id,
+            desc,
+            planned: null,
+            assigned: null,
+            issued: null,
+            total: null,
+            retour: null,
+          };
+          matches.forEach((m, idx) => {
+            const val = m[1].replace(/\./g, "").replace(/,/g, ".");
+            const num = Number.parseFloat(val);
+            out[mapOrder[idx]] = Number.isFinite(num) ? num : null;
+          });
+          return out;
+        };
+      }
+
+      const htmlTablesToLines = (html) => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const tables = Array.from(doc.querySelectorAll("table"));
+        const lines = [];
+        for (const t of tables) {
+          for (const tr of t.querySelectorAll("tr")) {
+            const cells = Array.from(tr.querySelectorAll("th,td"))
+              .map((td) => td.textContent.replace(/\u00A0/g, " ").trim())
+              .filter(Boolean);
+            if (cells.length) lines.push(cells.join("  "));
+          }
+        }
+        return lines;
+      };
+
+      const parseCommonLines = (lines) => {
+        const rows = [];
+        let skipped = 0;
+        for (const raw of lines) {
+          const line = String(raw).replace(/\s{2,}/g, " ").trim();
+          if (!line) {
+            skipped++;
+            continue;
+          }
+          const row = normalizeLine(line);
+          if (row) rows.push(row);
+          else skipped++;
+        }
+        if (!rows.length) throw new Error(`Aucune ligne exploitable (${skipped} ignorées).`);
+        return rows;
+      };
+
+      const parseHtmlContent = (htmlText) => {
+        const lines = htmlTablesToLines(htmlText);
+        return parseCommonLines(lines);
+      };
+
+      const parseTxtContentSafe = (txt) => {
+        const pre = preprocessLines(txt);
+        return parseCommonLines(pre);
+      };
+
+      const importAnyContent = (name, text) => {
+        const lower = (name || "").toLowerCase();
+        const looksHtml = /<[^>]+>/.test(text) || /\.html?$/.test(lower);
+        return looksHtml ? parseHtmlContent(text) : parseTxtContentSafe(text);
+      };
+
+      const tableBody = document.getElementById("materialsBody");
+      const totalsElements = {
+        assigned: document.getElementById("totalAssigned"),
+        issued: document.getElementById("totalIssued"),
+        total: document.getElementById("totalOverall"),
+        retour: document.getElementById("totalRetour"),
+        consomme: document.getElementById("totalConsomme"),
+      };
+
+      const tiles = {
+        planifie: document.getElementById("tilePlanifie"),
+        produit: document.getElementById("tileProduit"),
+        consomme: document.getElementById("tileConsomme"),
+        retour: document.getElementById("tileRetour"),
+      };
+
+      const fileInput = document.getElementById("file-input");
+      const dropZone = document.getElementById("dropZone");
+      const fileStatus = document.getElementById("fileStatus");
+      const resetButton = document.getElementById("resetData");
+
+      const setStatus = (message, tone = "muted") => {
+        fileStatus.textContent = message;
+        fileStatus.className = `text-xs ${
+          tone === "error"
+            ? "text-red-600"
+            : tone === "success"
+            ? "text-emerald-600"
+            : "text-gray-500"
+        }`;
+      };
+
+      const cloneRows = (rows) => rows.map((row) => ({ ...row }));
+
+      const state = {
+        rows: cloneRows(baseData),
+      };
+
+      const render = () => {
+        tableBody.innerHTML = "";
+        let totals = {
+          planned: 0,
+          assigned: 0,
+          issued: 0,
+          total: 0,
+          retour: 0,
+          consomme: 0,
+        };
+
+        state.rows.forEach((row) => {
+          const id = String(row.id ?? "").trim();
+          row.id = id;
+          const planned = Number(row.planned) || 0;
+          const assigned = Number(row.assigned) || 0;
+          const issued = Number(row.issued) || 0;
+          const total = Number(row.total) || 0;
+          const retour = Math.min(clampNonNeg(Number(row.retour)), assigned);
+          row.retour = retour;
+          const consomme = clampNonNeg(assigned - retour);
+          const delta = percentDeviation(consomme, assigned);
+          const badMaterial = !isValidMaterialId(id);
+          const issuedGtAssigned = issued > assigned;
+          const description = String(row.desc ?? "").replace(/\s{2,}/g, " ").trim();
+          row.desc = description;
+
+          totals = {
+            planned: totals.planned + planned,
+            assigned: totals.assigned + assigned,
+            issued: totals.issued + issued,
+            total: totals.total + total,
+            retour: totals.retour + retour,
+            consomme: totals.consomme + consomme,
+          };
+
+          const tr = document.createElement("tr");
+          tr.className = "align-top";
+          if (badMaterial) {
+            tr.classList.add("bg-red-50");
+          }
+          tr.innerHTML = `
+            <td class="whitespace-nowrap px-3 py-3 font-mono text-xs text-gray-700">${id}</td>
+            <td class="px-3 py-3 text-gray-800">${description}</td>
+            <td class="px-3 py-3 text-right font-medium text-gray-900">${fmt(assigned)}</td>
+            <td class="px-3 py-3 text-right text-gray-600">${fmt(issued)}</td>
+            <td class="px-3 py-3 text-right text-gray-600">${fmt(total)}</td>
+            <td class="px-3 py-3">
+              <input
+                type="number"
+                min="0"
+                value="${retour}"
+                data-id="${id}"
+                class="w-24 rounded-lg border border-gray-200 px-2 py-1 text-right text-sm text-gray-800 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+              />
+            </td>
+            <td class="px-3 py-3 text-right font-semibold text-gray-900">${fmt(consomme)}</td>
+            <td class="px-3 py-3 text-right">
+              <span class="inline-flex min-w-[4rem] justify-end rounded-full px-2 py-1 text-xs font-semibold ${
+                Math.abs(delta) <= 2
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-red-50 text-red-700"
+              }">${fmtPercent(delta)}%</span>${
+                issuedGtAssigned
+                  ? '<span class="ml-2 inline-block rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-700">issued&gt;assigned</span>'
+                  : ""
+              }
+            </td>
+          `;
+
+          tableBody.appendChild(tr);
+        });
+
+        totalsElements.assigned.textContent = fmt(totals.assigned);
+        totalsElements.issued.textContent = fmt(totals.issued);
+        totalsElements.total.textContent = fmt(totals.total);
+        totalsElements.retour.textContent = fmt(totals.retour);
+        totalsElements.consomme.textContent = fmt(totals.consomme);
+
+        tiles.planifie.textContent = fmt(totals.planned);
+        tiles.produit.textContent = fmt(totals.total);
+        tiles.consomme.textContent = fmt(totals.consomme);
+        tiles.retour.textContent = fmt(totals.retour);
+      };
+
+      const updateRetour = (id, value) => {
+        const row = state.rows.find((item) => item.id === id);
+        if (!row) return;
+        row.retour = Math.min(clampNonNeg(Number(value)), Number(row.assigned) || 0);
+        render();
+      };
+
+      tableBody.addEventListener("input", (event) => {
+        const { target } = event;
+        if (target.matches("input[type='number']")) {
+          updateRetour(target.dataset.id, target.value);
+        }
+      });
+
+      const downloadBlob = (content, filename, type) => {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      };
+
+      const collectRows = () =>
+        state.rows.map((row) => {
+          const planned = Number(row.planned) || 0;
+          const assigned = Number(row.assigned) || 0;
+          const issued = Number(row.issued) || 0;
+          const total = Number(row.total) || 0;
+          const retour = Math.min(clampNonNeg(Number(row.retour)), assigned);
+          const consomme = clampNonNeg(assigned - retour);
+          const delta = percentDeviation(consomme, assigned);
+
+          return {
+            id: String(row.id ?? "").trim(),
+            desc: String(row.desc ?? "").replace(/\s{2,}/g, " ").trim(),
+            planned,
+            assigned,
+            issued,
+            total,
+            retour,
+            consomme,
+            delta: Number(delta.toFixed(1)),
+          };
+        });
+
+      document.getElementById("exportJson").addEventListener("click", () => {
+        const payload = collectRows().map(({ delta, ...rest }) => ({ ...rest, consomme: rest.consomme }));
+        downloadBlob(JSON.stringify(payload, null, 2), "conso-retour.json", "application/json");
+      });
+
+      document.getElementById("exportCsv").addEventListener("click", () => {
+        const headers = [
+          "Material",
+          "Description",
+          "Assigned",
+          "Issued",
+          "Total",
+          "Retour",
+          "Consomme",
+          "DeltaPercent",
+        ];
+        const rows = collectRows()
+          .map((row) =>
+            [
+              row.id,
+              row.desc.replace(/"/g, '""'),
+              row.assigned,
+              row.issued,
+              row.total,
+              row.retour,
+              row.consomme,
+              row.delta,
+            ]
+              .map((value) => `"${value}"`)
+              .join(",")
+          )
+          .join("\n");
+        const csv = `${headers.join(",")}\n${rows}`;
+        downloadBlob(csv, "conso-retour.csv", "text/csv");
+      });
+
+      document.getElementById("validatePo").addEventListener("click", () => {
+        const summary = collectRows().map(
+          (row) => `${row.id} – Retour: ${fmt(row.retour)} | Consommé: ${fmt(row.consomme)}`
+        );
+        alert(`Validation du PO\n\n${summary.join("\n")}`);
+      });
+
+      function handleDataImport(file) {
+        if (!file) return;
+        if (!/\.(txt|htm|html)$/i.test(file.name)) {
+          setStatus("Formats supportés: .txt, .htm, .html", "error");
+          return;
+        }
+        setStatus(`Chargement de « ${file.name} » …`);
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const content = String(reader.result || "");
+            const rows = importAnyContent(file.name, content);
+            state.rows = rows.map((r) => ({
+              id: r.id,
+              desc: r.desc,
+              planned: r.planned ?? null,
+              assigned: r.assigned ?? null,
+              issued: r.issued ?? null,
+              total: r.total ?? (r.assigned ?? r.issued ?? null),
+              retour: r.retour ?? null,
+            }));
+            render();
+            setStatus(
+              `Fichier « ${file.name} » importé (${rows.length} ligne${rows.length > 1 ? "s" : ""}).`,
+              "success"
+            );
+          } catch (e) {
+            console.error(e);
+            setStatus(`Échec de l'import : ${e.message}`, "error");
+          }
+        };
+        reader.onerror = () => setStatus("Lecture du fichier impossible.", "error");
+        reader.readAsText(file, "utf-8");
+      }
+
+      fileInput.addEventListener("change", (event) => {
+        const [file] = event.target.files;
+        handleDataImport(file);
+        event.target.value = "";
+      });
+
+      const dropZoneHighlight = (active) => {
+        dropZone.classList.toggle("border-indigo-400", active);
+        dropZone.classList.toggle("bg-indigo-100", active);
+      };
+
+      dropZone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        dropZoneHighlight(true);
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZoneHighlight(false);
+      });
+
+      dropZone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        dropZoneHighlight(false);
+        const { files } = event.dataTransfer;
+        if (files && files.length) {
+          handleDataImport(files[0]);
+        }
+      });
+
+      resetButton.addEventListener("click", () => {
+        state.rows = state.rows.map((row) => ({ ...row, retour: 0 }));
+        render();
+        setStatus("Retours remis à zéro.");
+      });
+
+      render();
+      setStatus("Aucun fichier importé pour le moment.");
+    </script>
+  </body>
+</html>
