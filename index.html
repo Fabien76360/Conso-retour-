@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Conso &amp; Retour SAP – Fin de PO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: linear-gradient(135deg, #f6f9ff 0%, #eef3ff 40%, #ffffff 100%);
+      --surface: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --accent: #0a66c2;
+      --accent-2: #0958a8;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --warning-ink: #b45309;
+      --line: rgba(15, 23, 42, 0.12);
+      --shadow: 0 8px 24px rgba(2, 6, 23, 0.08);
+      --radius: 12px;
+      font-size: 17px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 17px;
+      color: var(--ink);
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1,
+    h2 {
+      margin: 0;
+      color: var(--ink);
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 16px 24px;
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    .title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 240px;
+    }
+
+    .subtitle {
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    nav[role="tablist"] {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    #status {
+      font-size: 0.95rem;
+      color: var(--muted);
+      min-width: 240px;
+      text-align: right;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      min-height: 44px;
+      min-width: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button:hover {
+      background: #f5f8ff;
+      border-color: #c7d2fe;
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      background: #f8fafc;
+      color: #94a3b8;
+      border-color: var(--line);
+      transform: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: transparent;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-2);
+      border-color: transparent;
+    }
+
+    .btn-ghost {
+      background: transparent;
+    }
+
+    .btn-ghost:hover {
+      background: #f8fafc;
+    }
+
+    .tab {
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      background: #ffffff;
+      border-radius: 999px;
+      font-weight: 500;
+      transition: all 0.18s ease;
+    }
+
+    .tab[aria-current="page"] {
+      background: #eaf3ff;
+      border-color: var(--accent);
+      color: #073b74;
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.18);
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    section[role="tabpanel"] {
+      display: none;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    section[role="tabpanel"].active {
+      display: flex;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    #drop-zone {
+      border: 2px dashed var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 32px 24px;
+      text-align: center;
+      color: #1e293b;
+      box-shadow: var(--shadow);
+      transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+    }
+
+    #drop-zone.dragover {
+      border-color: var(--accent);
+      background: #f0f6ff;
+      color: #0a3f78;
+      transform: translateY(-1px);
+    }
+
+    .drop-icon {
+      font-size: 42px;
+      margin-bottom: 12px;
+    }
+
+    #placeholder {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    iframe {
+      width: 100%;
+      min-height: 360px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      display: none;
+    }
+
+    .section-header {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .section-description {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .operator-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f0f6ff;
+      color: #0b305e;
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #dbeafe;
+      font-weight: 600;
+    }
+
+    tbody td {
+      padding: 11px 12px;
+      border-top: 1px solid #eef2f7;
+      vertical-align: middle;
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #fcfdff;
+    }
+
+    tbody tr:hover {
+      background: #f7fbff;
+    }
+
+    td[data-col="consommer"] {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    td[data-col="retourner"] {
+      color: var(--warning-ink);
+      font-weight: 600;
+    }
+
+    .badge-warn {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: #fff7ed;
+      color: var(--warning-ink);
+      border: 1px solid #fed7aa;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      min-height: 42px;
+      padding: 8px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 1rem;
+      background: #ffffff;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-color: transparent;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
+    }
+
+    .empty-row {
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    @media (max-width: 720px) {
+      header {
+        padding: 16px;
+      }
+
+      nav[role="tablist"] {
+        margin-left: 0;
+      }
+
+      #status {
+        text-align: left;
+      }
+
+      main {
+        padding: 20px;
+      }
+
+      .table-wrap {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title-group">
+      <h1>Conso &amp; Retour SAP – Fin de PO</h1>
+      <p class="subtitle">Import sécurisé YMLR et préparation opérateur</p>
+    </div>
+    <div class="controls">
+      <label for="file" class="btn-primary">📂 Importer le fichier YMLR (.htm)</label>
+      <input id="file" type="file" accept=".htm,.html,text/html" hidden>
+      <button id="reset-btn" type="button" class="btn-ghost">Réinitialiser</button>
+    </div>
+    <nav role="tablist" aria-label="Navigation des vues">
+      <button id="tab-import" class="tab" role="tab" aria-controls="view-import" aria-selected="true" aria-current="page">📂 Import YMLR</button>
+      <button id="tab-operateur" class="tab" role="tab" aria-controls="view-operateur" aria-selected="false">👷 Page Opérateur</button>
+    </nav>
+    <div id="status" aria-live="polite">Aucun fichier chargé</div>
+  </header>
+
+  <main>
+    <section id="view-import" role="tabpanel" aria-labelledby="tab-import" class="active">
+      <div class="card">
+        <div id="drop-zone" tabindex="0" aria-label="Zone de dépôt pour fichiers SAP YMLR">
+          <div class="drop-icon" aria-hidden="true">📂</div>
+          <p>Glissez votre fichier SAP YMLR (.htm) ou cliquez sur «&nbsp;Importer&nbsp;».</p>
+          <p id="placeholder">Aucun fichier n'est chargé.</p>
+        </div>
+        <iframe id="viewer" title="Aperçu du fichier YMLR" sandbox=""></iframe>
+      </div>
+    </section>
+
+    <section id="view-operateur" role="tabpanel" aria-labelledby="tab-operateur">
+      <div class="section-header">
+        <h2>Articles et retours opérateur</h2>
+        <p class="section-description">Les lignes extraites du fichier YMLR apparaissent ci-dessous pour préparer la saisie en fin de production.</p>
+      </div>
+      <div class="operator-actions">
+        <button type="button" class="btn-ghost" disabled>Enregistrer brouillon</button>
+        <button type="button" class="btn-ghost" disabled>Retour synthèse</button>
+      </div>
+      <div class="table-wrap">
+        <table aria-label="Tableau des articles extraits du YMLR">
+          <thead>
+            <tr>
+              <th scope="col">Article</th>
+              <th scope="col">Description</th>
+              <th scope="col">Planned Qty</th>
+              <th scope="col">Assigné</th>
+              <th scope="col">Issued Quantity</th>
+              <th scope="col">Reste sur ligne</th>
+              <th scope="col">À consommer</th>
+              <th scope="col">À retourner</th>
+              <th scope="col">UoM</th>
+              <th scope="col">Alerte</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="10" class="empty-row">Importez un fichier YMLR pour afficher les articles à traiter.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tabImport = document.getElementById('tab-import');
+    const tabOperateur = document.getElementById('tab-operateur');
+    const viewImport = document.getElementById('view-import');
+    const viewOperateur = document.getElementById('view-operateur');
+
+    function show(view) {
+      [viewImport, viewOperateur].forEach(section => section.classList.remove('active'));
+      view.classList.add('active');
+      const isImport = view === viewImport;
+      tabImport.setAttribute('aria-selected', String(isImport));
+      tabOperateur.setAttribute('aria-selected', String(!isImport));
+      if (isImport) {
+        tabImport.setAttribute('aria-current', 'page');
+        tabOperateur.removeAttribute('aria-current');
+      } else {
+        tabOperateur.setAttribute('aria-current', 'page');
+        tabImport.removeAttribute('aria-current');
+      }
+    }
+
+    tabImport.addEventListener('click', () => show(viewImport));
+    tabOperateur.addEventListener('click', () => show(viewOperateur));
+
+    const fileInput = document.getElementById('file');
+    const dropZone = document.getElementById('drop-zone');
+    const viewer = document.getElementById('viewer');
+    const placeholder = document.getElementById('placeholder');
+    const statusEl = document.getElementById('status');
+    const resetBtn = document.getElementById('reset-btn');
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function formatSize(bytes) {
+      if (!Number.isFinite(bytes)) return '';
+      if (bytes < 1024) return `${bytes} o`;
+      const kb = bytes / 1024;
+      return `${kb.toFixed(kb >= 10 ? 0 : 1)} Ko`;
+    }
+
+    function clearView() {
+      viewer.removeAttribute('srcdoc');
+      viewer.style.display = 'none';
+      placeholder.textContent = "Aucun fichier n'est chargé.";
+      dropZone.classList.remove('dragover');
+      fileInput.value = '';
+      renderOperatorTable([]);
+      setStatus('Aucun fichier chargé');
+    }
+
+    resetBtn.addEventListener('click', clearView);
+
+    function sanitizeContent(raw) {
+      return raw.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+    }
+
+    function loadFile(file) {
+      if (!file) return;
+      const isHtml = /\.html?$/.test(file.name) || file.type === 'text/html' || file.type === '';
+      if (!isHtml) {
+        setStatus('Format non reconnu. Sélectionnez un fichier .htm/.html export SAP YMLR.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onerror = () => setStatus('Erreur de lecture du fichier.');
+      reader.onload = () => {
+        const raw = String(reader.result);
+        const cleaned = sanitizeContent(raw);
+        viewer.srcdoc = cleaned;
+        viewer.style.display = 'block';
+        placeholder.textContent = 'Aperçu chargé ci-dessous.';
+        const extracted = extractYmlrData(cleaned);
+        renderOperatorTable(extracted);
+        setStatus(`Chargé : ${file.name} — ${formatSize(file.size)} • ${extracted.length} lignes extraites`);
+      };
+      reader.readAsText(file);
+    }
+
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files && event.target.files[0];
+      loadFile(file);
+    });
+
+    ['dragenter', 'dragover'].forEach(type => {
+      dropZone.addEventListener(type, (event) => {
+        event.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(type => {
+      dropZone.addEventListener(type, (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('dragover');
+      });
+    });
+
+    dropZone.addEventListener('drop', (event) => {
+      const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      loadFile(file);
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    function extractYmlrData(html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const lines = Array.from(doc.querySelectorAll('tr td'))
+        .map((td) => td.textContent.replace(/\u00A0|\u202F/g, ' ').replace(/\s+/g, ' ').trim())
+        .filter((text) => text && /\d{5,}/.test(text));
+
+      const regex = /(\d{5,})\s+([A-Za-z0-9À-ÿ \-\/().]+?)\s+([\d.,]+)(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?\s+([A-Z]+)/;
+      const toNum = (value) => {
+        if (value == null) return null;
+        const normalized = String(value)
+          .replace(/\u00A0|\u202F/g, '')
+          .replace(/\s+/g, '')
+          .replace(',', '.');
+        const parsed = parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+
+      const data = [];
+      for (const line of lines) {
+        if (/\bissued\b(?!\s*quantity)/i.test(line)) {
+          continue;
+        }
+        const match = regex.exec(line);
+        if (!match) continue;
+        const mat = match[1];
+        const desc = match[2].trim();
+        const n1 = toNum(match[3]);
+        const n2 = toNum(match[4]);
+        const n3 = toNum(match[5]);
+        const n4 = toNum(match[6]);
+        const uom = match[7];
+
+        const planned = n1 ?? null;
+        const assigned = n2 ?? n4 ?? n1 ?? null;
+        const issued = n3 ?? null;
+        const total = n4 ?? n2 ?? n1 ?? null;
+
+        data.push({
+          mat,
+          desc,
+          planned,
+          assigned,
+          issued,
+          total,
+          uom
+        });
+      }
+
+      return data;
+    }
+
+    function renderOperatorTable(data) {
+      const tbody = document.querySelector('#view-operateur tbody');
+      tbody.innerHTML = '';
+
+      if (!data.length) {
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = '<td colspan="10" class="empty-row">Aucune donnée extraite pour le moment. Importez un fichier YMLR.</td>';
+        tbody.appendChild(emptyRow);
+        return;
+      }
+
+      const fmt = (value) => (value == null ? '—' : String(value));
+
+      for (const row of data) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.mat}</td>
+          <td>${row.desc}</td>
+          <td>${fmt(row.planned)}</td>
+          <td>${fmt(row.assigned ?? row.qty)}</td>
+          <td>${fmt(row.issued)}</td>
+          <td><input type="text" inputmode="decimal" placeholder="0"></td>
+          <td data-col="consommer">—</td>
+          <td data-col="retourner">—</td>
+          <td>${row.uom || '—'}</td>
+          <td>—</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    renderOperatorTable([]);
+  </script>
+</body>
+</html>
